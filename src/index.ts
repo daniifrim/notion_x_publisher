@@ -40,6 +40,13 @@ class NotionXPublisher {
 
 // AWS Lambda handler
 export const handler = async (event: any): Promise<any> => {
+  // Add this debug section
+  console.log('Twitter Credentials Check:');
+  console.log('API Key Length:', process.env.TWITTER_API_KEY?.length);
+  console.log('API Secret Length:', process.env.TWITTER_API_SECRET?.length);
+  console.log('Access Token Length:', process.env.TWITTER_ACCESS_TOKEN?.length);
+  console.log('Access Token Secret Length:', process.env.TWITTER_ACCESS_TOKEN_SECRET?.length);
+
   try {
     const notionConfig: NotionConfig = {
       databaseId: process.env.NOTION_DATABASE_ID!,
