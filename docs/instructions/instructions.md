@@ -61,42 +61,111 @@ TWITTER_ACCESS_TOKEN_SECRET=your_twitter_access_token_secret
 
 ## Deployment Instructions
 
-### 1. Prepare Deployment Package
-1. Install dependencies:
-   ```bash
-   npm install
-   ```
-
-2. Build the project:
-   ```bash
-   npm run build
-   ```
-
-3. Create deployment ZIP:
-   - Include:
-     - /dist directory (compiled code)
-     - package.json
-     - package-lock.json
-     - node_modules
+### 1. GitHub Setup
+1. Ensure your code is on GitHub:
+   - All source code
+   - `package.json` and `package-lock.json`
+   - `.gitignore` should exclude:
+     ```
+     node_modules/
+     dist/
+     .env
+     ```
+   - Commit and push all changes
 
 ### 2. AWS Lambda Setup
-1. Create new Lambda function:
-   - Name: notion-x-publisher
+
+#### 2.1 Create Lambda Function
+1. Go to AWS Lambda Console
+2. Click "Create function"
+3. Select "Author from scratch"
+   - Function name: `notion-x-publisher`
    - Runtime: Node.js 18.x
    - Architecture: x86_64
+4. Click "Create function"
 
-2. Configure function:
-   - Handler: dist/scheduled.handler
+#### 2.2 Set Up GitHub Integration
+1. In Lambda function page:
+   - Go to "Code source" section
+   - Click "Add trigger"
+   - Select "GitHub"
+   - Click "Configure new GitHub connection"
+   - Follow OAuth flow to connect AWS and GitHub
+   - Select your repository
+   - Choose main/master branch
+   - Configure webhook events (push to main)
+
+#### 2.3 Configure Build Settings
+1. Create `buildspec.yml` in your repository:
+   ```yaml
+   version: 0.2
+   phases:
+     install:
+       runtime-versions:
+         nodejs: 18
+       commands:
+         - npm install
+     build:
+       commands:
+         - npm run build
+   artifacts:
+     files:
+       - dist/**/*
+       - node_modules/**/*
+       - package.json
+       - package-lock.json
+   ```
+
+#### 2.4 Configure Function
+1. Set handler:
+   - Go to "Runtime settings"
+   - Click "Edit"
+   - Set Handler to: `dist/scheduled.handler`
+
+2. Set environment variables:
+   - Go to "Configuration" tab
+   - Click "Environment variables"
+   - Add all required variables:
+     ```
+     NOTION_API_KEY
+     NOTION_DATABASE_ID
+     TWITTER_API_KEY
+     TWITTER_API_SECRET
+     TWITTER_ACCESS_TOKEN
+     TWITTER_ACCESS_TOKEN_SECRET
+     ```
+
+3. Adjust settings:
    - Memory: 256MB
    - Timeout: 30 seconds
-   - Environment variables: Add all required variables
 
-3. Set up EventBridge trigger:
-   - Create new rule
-   - Schedule pattern: rate(5 minutes)
-   - Target: Your Lambda function
+### 3. Set Up EventBridge Trigger
+1. In Lambda console:
+   - Click "Add trigger"
+   - Select "EventBridge (CloudWatch Events)"
+   - Create new rule:
+     - Name: `notion-x-publisher-schedule`
+     - Schedule expression: `rate(5 minutes)`
+   - Click "Add"
 
-### 3. IAM Permissions
+### 4. Verify Deployment
+1. Check CloudWatch Logs:
+   - Go to "Monitor" tab
+   - Click "View CloudWatch logs"
+   - Verify function is running
+
+2. Test function:
+   - Create test event
+   - Run test
+   - Check logs and Notion database
+
+### 5. Continuous Deployment
+- Any push to main branch will:
+  1. Trigger AWS build
+  2. Deploy new code to Lambda
+  3. Log build status in CloudWatch
+
+## IAM Permissions
 Required permissions:
 - CloudWatch Logs:
   - logs:CreateLogGroup
