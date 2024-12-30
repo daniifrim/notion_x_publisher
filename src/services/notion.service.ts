@@ -1,6 +1,6 @@
 import { Client } from '@notionhq/client';
 import { PageObjectResponse } from '@notionhq/client/build/src/api-endpoints';
-import { NotionTweet, NotionConfig } from '../types/notion.types';
+import { NotionTweet, NotionConfig, NotionBlock } from '../types/notion.types';
 
 export class NotionService {
   private client: Client;
@@ -9,6 +9,56 @@ export class NotionService {
   constructor(config: NotionConfig) {
     this.client = new Client({ auth: config.apiKey });
     this.databaseId = config.databaseId;
+  }
+
+  private async getPageBlocks(pageId: string): Promise<NotionBlock[]> {
+    try {
+      const response = await this.client.blocks.children.list({
+        block_id: pageId
+      });
+      
+      return response.results as NotionBlock[];
+    } catch (error) {
+      console.error('Failed to fetch page blocks:', error);
+      throw error;
+    }
+  }
+
+  private async extractThreadContent(pageId: string): Promise<string[]> {
+    const blocks = await this.getPageBlocks(pageId);
+    const tweets: string[] = [];
+    let currentTweet: string[] = [];
+
+    for (const block of blocks) {
+      if (block.type === 'divider') {
+        // When we hit a divider, join the current tweet content and add it to tweets
+        if (currentTweet.length > 0) {
+          tweets.push(currentTweet.join('\n').trim());
+          currentTweet = [];
+        }
+      } else if (block.type === 'paragraph') {
+        const richText = block.paragraph?.rich_text;
+        if (richText && richText.length > 0) {
+          // Add paragraph content to current tweet
+          const text = richText
+            .map(rt => rt.plain_text)
+            .join('')
+            .trim();
+          
+          if (text.length > 0) {
+            currentTweet.push(text);
+          }
+        }
+      }
+    }
+
+    // Don't forget the last tweet if it exists
+    if (currentTweet.length > 0) {
+      tweets.push(currentTweet.join('\n').trim());
+    }
+
+    // Filter out any empty tweets
+    return tweets.filter(tweet => tweet.length > 0);
   }
 
   async getReadyTweets(): Promise<NotionTweet[]> {
@@ -40,19 +90,35 @@ export class NotionService {
         ]
       });
 
-      return response.results
-        .filter((page): page is PageObjectResponse => 'properties' in page)
-        .map(page => {
-          const properties = page.properties as any;
-          return {
-            id: page.id,
-            content: properties.Name.title[0]?.plain_text || '',
-            scheduledTime: new Date(properties['Scheduled Time'].date?.start || now.toISOString()),
-            status: properties.Status.select?.name || 'Draft',
-            effort: properties.Effort?.select?.name,
-            engagement: properties.Engagement?.select?.name
-          };
-        });
+      const tweets = await Promise.all(
+        response.results
+          .filter((page): page is PageObjectResponse => 'properties' in page)
+          .map(async page => {
+            const properties = page.properties as any;
+            const isThread = properties.Thread?.checkbox || false;
+            const title = properties.Name.title[0]?.plain_text || '';
+            
+            let content = title;
+            if (isThread) {
+              // For threads, we'll get the content from the page blocks
+              const threadContent = await this.extractThreadContent(page.id);
+              content = threadContent.join('\n');
+            }
+
+            return {
+              id: page.id,
+              title,
+              content,
+              isThread,
+              scheduledTime: new Date(properties['Scheduled Time'].date?.start || now.toISOString()),
+              status: properties.Status.select?.name || 'Draft',
+              effort: properties.Effort?.select?.name,
+              engagement: properties.Engagement?.select?.name
+            };
+          })
+      );
+
+      return tweets;
     } catch (error) {
       console.error('Failed to fetch ready tweets from Notion:', error);
       throw error;
@@ -102,7 +168,8 @@ export class NotionService {
         'URL',
         'Published Date',
         'Effort',
-        'Engagement'
+        'Engagement',
+        'Thread'
       ];
       
       console.log('📋 Required properties:', requiredProperties);
@@ -128,6 +195,13 @@ export class NotionService {
       const statusProperty = database.properties['Status'] as any;
       if (statusProperty.type !== 'select') {
         throw new Error('Status property must be a select type');
+      }
+
+      // Validate Thread property is a checkbox
+      console.log('🔍 Validating Thread property...');
+      const threadProperty = database.properties['Thread'] as any;
+      if (threadProperty.type !== 'checkbox') {
+        throw new Error('Thread property must be a checkbox type');
       }
 
       const requiredStatuses = ['Draft', 'Ready To Publish', 'Published', 'Failed to Post'];
@@ -171,7 +245,6 @@ export class NotionService {
         throw new Error('Published Date property must be a date type');
       }
 
-      // Remove Type validation since it's not in the database
       console.log('✅ All database schema validations passed');
     } catch (error) {
       console.error('Failed to validate database schema:', error);

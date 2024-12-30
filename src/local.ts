@@ -61,20 +61,53 @@ async function main() {
 
     // Process each tweet
     for (const tweet of readyTweets) {
-      console.log(`\n🔄 Processing tweet: "${tweet.content}"`);
-      console.log(`Scheduled for: ${tweet.scheduledTime.toLocaleString()}`);
+      if (tweet.isThread) {
+        console.log(`\n🧵 Processing thread: "${tweet.title}"`);
+        
+        // Split content into individual tweets
+        const tweets = tweet.content.split('\n').filter(t => t.trim().length > 0);
+        
+        console.log(`Thread contains ${tweets.length} tweets:`);
+        tweets.forEach((content, index) => {
+          console.log(`\n[${index + 1}/${tweets.length}] ${content}`);
+        });
 
-      try {
-        const publishedTweet = await twitterService.postTweet(tweet.content);
-        console.log('✅ Tweet published successfully');
-        console.log(`🔗 Tweet URL: ${publishedTweet.url}`);
+        try {
+          const threadResult = await twitterService.postThread(tweets);
+          console.log('✅ Thread published successfully');
+          console.log(`🔗 Thread URL: ${threadResult.threadUrl}`);
 
-        await notionService.updateTweetStatus(tweet.id, 'Published', publishedTweet.url);
-        console.log('✅ Notion status updated');
-      } catch (error) {
-        console.error('❌ Failed to publish tweet:', error);
-        await notionService.updateTweetStatus(tweet.id, 'Failed to Post', error instanceof Error ? error.message : 'Unknown error');
-        console.log('⚠️ Tweet status updated to Failed to Post');
+          await notionService.updateTweetStatus(tweet.id, 'Published', threadResult.threadUrl);
+          console.log('✅ Notion status updated');
+        } catch (error) {
+          console.error('❌ Failed to publish thread:', error);
+          await notionService.updateTweetStatus(
+            tweet.id,
+            'Failed to Post',
+            error instanceof Error ? error.message : 'Unknown error'
+          );
+          console.log('⚠️ Tweet status updated to Failed to Post');
+        }
+      } else {
+        console.log(`\n🔄 Processing single tweet: "${tweet.content}"`);
+        console.log(`Scheduled for: ${tweet.scheduledTime.toLocaleString()}`);
+
+        try {
+          const publishedTweet = await twitterService.postTweet(tweet.content);
+          console.log('✅ Tweet published successfully');
+          console.log(`🔗 Tweet URL: ${publishedTweet.url}`);
+
+          await notionService.updateTweetStatus(tweet.id, 'Published', publishedTweet.url);
+          console.log('✅ Notion status updated');
+        } catch (error) {
+          console.error('❌ Failed to publish tweet:', error);
+          await notionService.updateTweetStatus(
+            tweet.id,
+            'Failed to Post',
+            error instanceof Error ? error.message : 'Unknown error'
+          );
+          console.log('⚠️ Tweet status updated to Failed to Post');
+        }
       }
     }
 

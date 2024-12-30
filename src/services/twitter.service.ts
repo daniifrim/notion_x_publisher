@@ -138,6 +138,42 @@ export class TwitterService {
     }
   }
 
+  async postThread(tweets: string[]): Promise<{ threadUrl: string; tweetIds: string[] }> {
+    try {
+      if (!this.username) {
+        await this.initialize();
+      }
+
+      if (!tweets.length) {
+        throw new Error('Thread must contain at least one tweet');
+      }
+
+      const tweetIds: string[] = [];
+      let replyToId: string | undefined;
+
+      // Post each tweet in the thread
+      for (const tweetContent of tweets) {
+        const tweetData = replyToId
+          ? await this.client.v2.tweet(tweetContent, { reply: { in_reply_to_tweet_id: replyToId } })
+          : await this.client.v2.tweet(tweetContent);
+
+        tweetIds.push(tweetData.data.id);
+        replyToId = tweetData.data.id;
+      }
+
+      return {
+        threadUrl: `https://x.com/${this.username}/status/${tweetIds[0]}`,
+        tweetIds
+      };
+    } catch (error) {
+      console.error('Twitter Thread Error:', error);
+      if (error instanceof Error) {
+        throw new Error(`Twitter Thread Error: ${error.message}`);
+      }
+      throw error;
+    }
+  }
+
   async scheduleTweet(content: string, publishDate: Date): Promise<void> {
     // Note: Twitter API v2 doesn't support scheduling tweets directly
     // We'll need to implement this using a queue system or AWS EventBridge
