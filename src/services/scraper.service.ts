@@ -14,34 +14,49 @@ interface ApifyTweetItem {
 }
 
 export class ScraperService {
-  private client: ApifyClient;
-  private config: ScraperConfig;
+  private apiToken: string;
+  private taskId: string;
 
   constructor(config: ScraperConfig) {
-    this.config = config;
-    this.client = new ApifyClient({
-      token: config.apifyToken
-    });
+    this.apiToken = config.apifyToken;
+    this.taskId = config.taskId;
   }
 
-  private getDefaultInput(searchTerms: string[], startUrls: string[]): ScraperInput {
+  public getTestInput(searchTerms: string[], startUrls: string[]): ScraperInput {
+    // Get date range for the last 30 days to ensure we get enough tweets
+    const endDate = new Date();
     const startDate = new Date();
-    startDate.setDate(startDate.getDate() + 5);
+    startDate.setDate(startDate.getDate() - 30);
+
+    // Convert usernames to proper search queries
+    const queries = startUrls.map(url => {
+      const username = url.split('/').pop() || '';
+      return username.replace('@', '');  // Just use the username without the date range
+    });
+
+    // Add search terms
+    const searchQueries = searchTerms.map(term => term.trim());
+
+    // Combine all queries (max 5 as per docs)
+    const combinedQueries = [...queries, ...searchQueries].slice(0, 5);
 
     return {
       customMapFunction: "(object) => { return {...object} }",
-      includeSearchTerms: true,
-      maxItems: 20,
-      minimumRetweets: 30,
+      start: startDate.toISOString().split('T')[0],
+      end: endDate.toISOString().split('T')[0],
+      includeSearchTerms: false,
+      maxItems: 50,  // Reduced to avoid rate limiting
+      minimumFavorites: 5,
+      minimumReplies: 2,
+      minimumRetweets: 5,
       onlyImage: false,
       onlyQuote: false,
       onlyTwitterBlue: false,
-      onlyVerifiedUsers: true,
+      onlyVerifiedUsers: false,
       onlyVideo: false,
-      searchTerms,
-      sort: "Top",
-      start: startDate.toISOString().split('T')[0],
-      startUrls,
+      searchTerms: combinedQueries,
+      sort: "Top",  // Changed to Top to get better results
+      startUrls: startUrls,
       tweetLanguage: "en"
     };
   }
@@ -51,22 +66,35 @@ export class ScraperService {
       console.log('Starting Twitter scraping task...');
       const startTime = new Date();
 
+      // Initialize Apify client
+      const client = new ApifyClient({
+        token: this.apiToken,
+      });
+
       // Prepare input for the Apify task
-      const input = this.getDefaultInput(searchTerms, startUrls);
+      const input = this.getTestInput(searchTerms, startUrls);
+      console.log('Apify task input:', JSON.stringify(input, null, 2));
       
       // Run the Apify task
       console.log('Running Apify task...');
-      const run = await this.client.task(this.config.taskId).call({ task_input: input });
+      const run = await client.task(this.taskId).call({ task_input: input });
+      
+      // Wait for the task to finish and get dataset items
+      console.log('Waiting for task to finish...');
+      const dataset = await client.dataset(run.defaultDatasetId);
+      const { items } = await dataset.listItems();
+      
+      console.log('Raw Apify results:', JSON.stringify(items, null, 2));
 
-      // Get the results
-      console.log('Fetching results from Apify...');
-      const dataset = await this.client.dataset(run.defaultDatasetId);
-      const itemsResult = await dataset.listItems();
-      const items = Array.isArray(itemsResult) ? itemsResult : (itemsResult as any).items || [];
+      // Get task logs
+      console.log('\nTask Logs:');
+      const logs = await client.log(run.id).get();
+      console.log(logs);
 
       // Process and sort the results
       const tweets = items
-        .map((item: Record<string, unknown>): ScrapedTweet => ({
+        .filter((item: Record<string, any>) => !item.noResults)
+        .map((item: Record<string, any>): ScrapedTweet => ({
           text: String(item.text || ''),
           url: String(item.url || ''),
           username: String(item.username || ''),
@@ -81,6 +109,7 @@ export class ScraperService {
 
       const endTime = new Date();
       console.log(`Scraping completed in ${endTime.getTime() - startTime.getTime()}ms`);
+      console.log('Processed tweets:', JSON.stringify(tweets, null, 2));
 
       return {
         tweets,
@@ -89,6 +118,12 @@ export class ScraperService {
       };
     } catch (error) {
       console.error('Failed to scrape tweets:', error);
+      if (error instanceof Error) {
+        console.error('Error details:', {
+          message: error.message,
+          stack: error.stack
+        });
+      }
       throw error;
     }
   }

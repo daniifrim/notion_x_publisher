@@ -24,8 +24,8 @@ async function main() {
 
     const aiConfig: AIConfig = {
       apiKey: process.env.OPENAI_API_KEY || '',
-      model: 'gpt-4',
-      maxTokens: 5000,
+      model: 'gpt-4o',
+      maxTokens: 1000,
       temperature: 0.5
     };
 
@@ -46,10 +46,18 @@ async function main() {
 
     // Process tweets
     console.log('\nStarting tweet scraping...');
+    
+    // Use actual configuration from Notion
     const scrapedData = await scraperService.scrapeTweets(
       inputConfig.interests,
       inputConfig.accountsToFollow
     );
+
+    // Display the exact JSON used for Apify (before making the request)
+    console.log('\nApify Input JSON for manual testing:');
+    const apifyInput = scraperService.getTestInput(inputConfig.interests, inputConfig.accountsToFollow);
+    console.log(JSON.stringify(apifyInput, null, 2));
+
     console.log(`Scraped ${scrapedData.totalTweets} tweets`);
 
     console.log('\nAnalyzing tweets...');
@@ -67,6 +75,21 @@ async function main() {
 
     console.log('\nAnalysis Results:');
     console.log(analysis.markdown);
+
+    // Create analysis entry in Notion
+    console.log('\nCreating analysis entry in Notion...');
+    try {
+      await notionService.createAnalysisEntry('', analysis.markdown, []);
+      console.log('✅ Analysis entry created in Notion');
+    } catch (error) {
+      console.error('Failed to create analysis entry:', error);
+      if (error instanceof Error) {
+        console.error('Error details:', {
+          message: error.message,
+          stack: error.stack
+        });
+      }
+    }
 
   } catch (error) {
     console.error('Error in test script:', error);

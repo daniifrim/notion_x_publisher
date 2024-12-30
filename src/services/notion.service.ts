@@ -321,4 +321,175 @@ export class NotionService {
       throw error;
     }
   }
+
+  async createAnalysisEntry(title: string, markdown: string, sourceUrls: string[]): Promise<void> {
+    try {
+      const analysisDatabaseId = process.env.NOTION_ANALYSIS_DATABASE_ID;
+      if (!analysisDatabaseId) {
+        throw new Error('NOTION_ANALYSIS_DATABASE_ID environment variable is not set');
+      }
+
+      // Format current date and time
+      const now = new Date();
+      const formattedDateTime = now.toLocaleString('en-US', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      });
+
+      // Create the page with only the title
+      const response = await this.client.pages.create({
+        parent: {
+          database_id: analysisDatabaseId
+        },
+        properties: {
+          'Name': {
+            title: [
+              {
+                text: {
+                  content: `Twitter Analysis - ${formattedDateTime}`
+                }
+              }
+            ]
+          }
+        }
+      });
+
+      // Convert markdown to Notion blocks
+      const blocks = this.convertMarkdownToBlocks(markdown);
+
+      // Add the content as blocks
+      await this.client.blocks.children.append({
+        block_id: response.id,
+        children: blocks
+      });
+    } catch (error) {
+      console.error('Failed to create analysis entry:', error);
+      throw error;
+    }
+  }
+
+  private convertMarkdownToBlocks(markdown: string): any[] {
+    const blocks: any[] = [];
+    const lines = markdown.split('\n');
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) {
+        // Add empty lines as paragraphs
+        blocks.push({
+          object: 'block',
+          type: 'paragraph',
+          paragraph: {
+            rich_text: []
+          }
+        });
+        continue;
+      }
+
+      // Convert markdown links to Notion format
+      const processLinks = (text: string) => {
+        const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+        const parts: { type: 'text' | 'link'; content: string; url?: string }[] = [];
+        let lastIndex = 0;
+        let match;
+
+        while ((match = linkRegex.exec(text)) !== null) {
+          // Add text before the link
+          if (match.index > lastIndex) {
+            parts.push({
+              type: 'text',
+              content: text.slice(lastIndex, match.index)
+            });
+          }
+
+          // Add the link
+          parts.push({
+            type: 'link',
+            content: match[1],
+            url: match[2]
+          });
+
+          lastIndex = match.index + match[0].length;
+        }
+
+        // Add remaining text
+        if (lastIndex < text.length) {
+          parts.push({
+            type: 'text',
+            content: text.slice(lastIndex)
+          });
+        }
+
+        return parts.map(part => ({
+          type: 'text',
+          text: { content: part.content },
+          ...(part.type === 'link' ? { href: part.url } : {})
+        }));
+      };
+
+      if (line.startsWith('# ')) {
+        // Heading 1
+        blocks.push({
+          object: 'block',
+          type: 'heading_1',
+          heading_1: {
+            rich_text: processLinks(line.slice(2))
+          }
+        });
+      } else if (line.startsWith('## ')) {
+        // Heading 2
+        blocks.push({
+          object: 'block',
+          type: 'heading_2',
+          heading_2: {
+            rich_text: processLinks(line.slice(3))
+          }
+        });
+      } else if (line.startsWith('- ')) {
+        // Bullet point
+        blocks.push({
+          object: 'block',
+          type: 'bulleted_list_item',
+          bulleted_list_item: {
+            rich_text: processLinks(line.slice(2))
+          }
+        });
+      } else if (line.startsWith('**') && line.endsWith('**')) {
+        // Bold text as a paragraph
+        blocks.push({
+          object: 'block',
+          type: 'paragraph',
+          paragraph: {
+            rich_text: [{
+              type: 'text',
+              text: { content: line.replace(/\*\*/g, '') },
+              annotations: { bold: true }
+            }]
+          }
+        });
+      } else if (line === '---') {
+        // Divider
+        blocks.push({
+          object: 'block',
+          type: 'divider',
+          divider: {}
+        });
+      } else {
+        // Regular paragraph
+        blocks.push({
+          object: 'block',
+          type: 'paragraph',
+          paragraph: {
+            rich_text: processLinks(line)
+          }
+        });
+      }
+    }
+
+    return blocks;
+  }
 } 

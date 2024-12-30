@@ -5,8 +5,12 @@ export interface ScraperConfig {
 
 export interface ScraperInput {
   customMapFunction: string;
+  start: string;
+  end: string;
   includeSearchTerms: boolean;
   maxItems: number;
+  minimumFavorites?: number;
+  minimumReplies?: number;
   minimumRetweets: number;
   onlyImage: boolean;
   onlyQuote: boolean;
@@ -14,10 +18,11 @@ export interface ScraperInput {
   onlyVerifiedUsers: boolean;
   onlyVideo: boolean;
   searchTerms: string[];
-  sort: 'Top' | 'Latest';
-  start: string;
+  sort: "Latest" | "Top";
   startUrls: string[];
   tweetLanguage: string;
+  geocode?: string;
+  placeObjectId?: string;
 }
 
 export interface ScrapedTweet {

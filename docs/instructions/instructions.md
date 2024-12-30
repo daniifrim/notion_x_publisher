@@ -183,3 +183,10 @@ OPENAI_API_KEY=your_openai_api_key
    - Monitor API version changes
    - Review security advisories
    - Update AI prompts as needed
+
+## Important Notes
+
+1. OpenAI Model Configuration
+   - If the model is `gpt-4o` use `gpt-4o` as the model name
+   - Do not try to change it to other variant
+   - Do not change this to `gpt-4` or any other variant
