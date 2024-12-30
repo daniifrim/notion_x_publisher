@@ -1,6 +1,6 @@
 import { Client } from '@notionhq/client';
 import { PageObjectResponse } from '@notionhq/client/build/src/api-endpoints';
-import { NotionTweet, NotionConfig, NotionBlock } from '../types/notion.types';
+import { NotionTweet, NotionConfig, NotionBlock, NotionInputConfig, NotionInputBlock } from '../types/notion.types';
 
 export class NotionService {
   private client: Client;
@@ -125,7 +125,7 @@ export class NotionService {
     }
   }
 
-  async updateTweetStatus(pageId: string, status: NotionTweet['status'], url?: string): Promise<void> {
+  async updateTweetStatus(pageId: string, status: NotionTweet['status'], url?: string, error?: string): Promise<void> {
     const properties: any = {
       'Status': {
         select: {
@@ -134,7 +134,7 @@ export class NotionService {
       }
     };
 
-    if (status === 'Published') {
+    if (status === 'Published' && url) {
       properties['URL'] = {
         url: url
       };
@@ -142,6 +142,17 @@ export class NotionService {
         date: {
           start: new Date().toISOString()
         }
+      };
+    }
+
+    if (status === 'Failed to Post' && error) {
+      properties['Error'] = {
+        rich_text: [{
+          type: 'text',
+          text: {
+            content: error
+          }
+        }]
       };
     }
 
@@ -254,6 +265,59 @@ export class NotionService {
           stack: error.stack
         });
       }
+      throw error;
+    }
+  }
+
+  async getInputConfig(): Promise<NotionInputConfig> {
+    try {
+      const inputPageId = process.env.NOTION_INPUT_PAGE_ID;
+      if (!inputPageId) {
+        throw new Error('NOTION_INPUT_PAGE_ID environment variable is not set');
+      }
+
+      const response = await this.client.blocks.children.list({
+        block_id: inputPageId
+      });
+
+      const blocks = response.results as NotionInputBlock[];
+      
+      let currentSection = '';
+      const config: NotionInputConfig = {
+        profile: '',
+        interests: [],
+        accountsToFollow: []
+      };
+
+      for (const block of blocks) {
+        if (block.type === 'heading_2' && block.heading_2?.rich_text[0]) {
+          const heading = block.heading_2.rich_text[0].plain_text.toLowerCase();
+          if (heading === 'profile') {
+            currentSection = 'profile';
+          } else if (heading === 'interests') {
+            currentSection = 'interests';
+          } else if (heading === 'accounts to follow') {
+            currentSection = 'accountsToFollow';
+          }
+        } else if (block.type === 'paragraph' && block.paragraph?.rich_text[0]) {
+          const text = block.paragraph.rich_text[0].plain_text.trim();
+          if (text) {
+            if (currentSection === 'profile') {
+              config.profile += (config.profile ? '\n' : '') + text;
+            } else if (currentSection === 'interests') {
+              config.interests.push(text);
+            } else if (currentSection === 'accountsToFollow') {
+              if (text.startsWith('https://x.com/') || text.startsWith('https://twitter.com/')) {
+                config.accountsToFollow.push(text);
+              }
+            }
+          }
+        }
+      }
+
+      return config;
+    } catch (error) {
+      console.error('Failed to fetch input configuration:', error);
       throw error;
     }
   }

@@ -1,0 +1,59 @@
+service: notion-x-publisher
+
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  region: us-east-1
+  environment:
+    NOTION_API_KEY: ${env:NOTION_API_KEY}
+    NOTION_DATABASE_ID: ${env:NOTION_DATABASE_ID}
+    TWITTER_API_KEY: ${env:TWITTER_API_KEY}
+    TWITTER_API_SECRET: ${env:TWITTER_API_SECRET}
+    TWITTER_ACCESS_TOKEN: ${env:TWITTER_ACCESS_TOKEN}
+    TWITTER_ACCESS_TOKEN_SECRET: ${env:TWITTER_ACCESS_TOKEN_SECRET}
+    APIFY_API_TOKEN: ${env:APIFY_API_TOKEN}
+    APIFY_TASK_ID: ${env:APIFY_TASK_ID}
+    OPENAI_API_KEY: ${env:OPENAI_API_KEY}
+
+plugins:
+  - serverless-plugin-typescript
+  - serverless-offline
+
+package:
+  individually: true
+  patterns:
+    - '!node_modules/.prisma/**'
+    - '!node_modules/@prisma/client/node_modules/**'
+    - '!node_modules/prisma/**'
+    - '!tests/**'
+    - '!coverage/**'
+    - '!.git/**'
+
+functions:
+  scraper:
+    handler: src/functions/scraper/index.handler
+    events:
+      - schedule: rate(1 hour)
+    timeout: 300
+    memorySize: 512
+
+  scheduler:
+    handler: src/functions/scheduler/index.handler
+    events:
+      - schedule: rate(5 minutes)
+    timeout: 60
+    memorySize: 256
+
+  processor:
+    handler: src/functions/ai-processor/index.handler
+    events:
+      - schedule: rate(30 minutes)
+    timeout: 300
+    memorySize: 1024
+
+custom:
+  serverless-offline:
+    httpPort: 4000
+    lambdaPort: 4002 
