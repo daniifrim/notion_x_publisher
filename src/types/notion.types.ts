@@ -5,7 +5,6 @@ export interface NotionTweet {
   status: 'Draft' | 'Ready To Publish' | 'Published' | 'Failed to Post';
   url?: string;
   publishedDate?: Date;
-  type?: string;
   effort?: string;
   engagement?: string;
 }

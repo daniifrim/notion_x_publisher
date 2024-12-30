@@ -49,7 +49,6 @@ export class NotionService {
             content: properties.Name.title[0]?.plain_text || '',
             scheduledTime: new Date(properties['Scheduled Time'].date?.start || now.toISOString()),
             status: properties.Status.select?.name || 'Draft',
-            type: properties.Type?.select?.name,
             effort: properties.Effort?.select?.name,
             engagement: properties.Engagement?.select?.name
           };
@@ -102,7 +101,6 @@ export class NotionService {
         'Name',
         'URL',
         'Published Date',
-        'Type',
         'Effort',
         'Engagement'
       ];
@@ -173,13 +171,7 @@ export class NotionService {
         throw new Error('Published Date property must be a date type');
       }
 
-      // Type property
-      const typeProperty = database.properties['Type'] as any;
-      console.log('Type property:', typeProperty);
-      if (typeProperty.type !== 'select') {
-        throw new Error('Type property must be a select type');
-      }
-
+      // Remove Type validation since it's not in the database
       console.log('✅ All database schema validations passed');
     } catch (error) {
       console.error('Failed to validate database schema:', error);
