@@ -1,0 +1,42 @@
+# Update requirements.txt based on codebase and instruction
+sudo apt-get install nodejs
+sudo apt-get install npm
+sudo apt-get install typescript
+sudo apt-get install notion
+sudo apt-get install x
+
+# Install AWS CLI
+sudo apt-get install awscli
+
+# Install AWS SAM CLI
+sudo apt-get install aws-sam-cli
+
+# Install ts-node
+npm install -g ts-node
+
+# Install ts-node-dev
+npm install -g ts-node-dev
+
+# Install jest
+npm install -g jest
+
+# Install eslint
+npm install -g eslint
+
+# Install prettier
+npm install -g prettier
+
+# Install tsc
+npm install -g tsc
+
+# Install ts-node
+npm install -g ts-node
+
+# Install ts-node-dev
+npm install -g ts-node-dev
+
+# Install jest
+npm install -g jest
+
+# Install eslint
+npm install -g eslint
