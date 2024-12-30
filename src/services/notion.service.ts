@@ -48,7 +48,10 @@ export class NotionService {
             id: page.id,
             content: properties.Name.title[0]?.plain_text || '',
             scheduledTime: new Date(properties['Scheduled Time'].date?.start || now.toISOString()),
-            status: properties.Status.select?.name || 'Draft'
+            status: properties.Status.select?.name || 'Draft',
+            type: properties.Type?.select?.name,
+            effort: properties.Effort?.select?.name,
+            engagement: properties.Engagement?.select?.name
           };
         });
     } catch (error) {
@@ -89,7 +92,17 @@ export class NotionService {
         database_id: this.databaseId
       });
 
-      const requiredProperties = ['Status', 'Publication Date', 'Name', 'URL'];
+      const requiredProperties = [
+        'Status',
+        'Scheduled Time',
+        'Name',
+        'URL',
+        'Published Date',
+        'Type',
+        'Effort',
+        'Engagement'
+      ];
+      
       const missingProperties = requiredProperties.filter(
         prop => !(prop in database.properties)
       );
@@ -125,6 +138,16 @@ export class NotionService {
       const urlProperty = database.properties['URL'] as any;
       if (urlProperty.type !== 'url') {
         throw new Error('URL property must be a URL type');
+      }
+
+      // Validate date properties
+      const scheduledTimeProperty = database.properties['Scheduled Time'] as any;
+      const publishedDateProperty = database.properties['Published Date'] as any;
+      if (scheduledTimeProperty.type !== 'date') {
+        throw new Error('Scheduled Time property must be a date type');
+      }
+      if (publishedDateProperty.type !== 'date') {
+        throw new Error('Published Date property must be a date type');
       }
     } catch (error) {
       console.error('Failed to validate database schema:', error);
