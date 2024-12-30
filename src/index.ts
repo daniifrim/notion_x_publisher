@@ -55,7 +55,7 @@ export const handler = async (event: any): Promise<any> => {
 
     const twitterConfig: TwitterConfig = {
       apiKey: process.env.TWITTER_API_KEY!,
-      apiKeySecret: process.env.TWITTER_API_KEY_SECRET!,
+      apiKeySecret: process.env.TWITTER_API_SECRET!,
       accessToken: process.env.TWITTER_ACCESS_TOKEN!,
       accessTokenSecret: process.env.TWITTER_ACCESS_TOKEN_SECRET!
     };
