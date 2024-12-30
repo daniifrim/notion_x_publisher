@@ -1,0 +1,37 @@
+{
+  "name": "notion_x_publisher",
+  "version": "1.0.0",
+  "description": "A TypeScript application to publish tweets from Notion to X (Twitter)",
+  "main": "dist/index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "start": "ts-node src/index.ts",
+    "build": "tsc",
+    "dev": "ts-node-dev --respawn src/index.ts",
+    "local": "ts-node src/local.ts",
+    "debug:twitter": "ts-node src/debug-twitter.ts",
+    "test": "jest",
+    "lint": "eslint . --ext .ts"
+  },
+  "keywords": [
+    "notion",
+    "twitter",
+    "automation"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/dotenv": "^8.2.3",
+    "@types/node": "^20.0.0",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@notionhq/client": "^2.2.15",
+    "dotenv": "^16.4.7",
+    "twitter-api-v2": "^1.19.0"
+  }
+}
