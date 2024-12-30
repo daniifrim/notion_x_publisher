@@ -23,12 +23,14 @@ class NotionXPublisher {
       
       for (const tweet of readyTweets) {
         try {
+          console.log('Attempting to post tweet:', tweet.content);
           const publishedTweet = await this.twitterService.postTweet(tweet.content);
+          console.log('Successfully posted tweet:', publishedTweet.text);
           await this.notionService.updateTweetStatus(tweet.id, 'Published', publishedTweet.text);
         } catch (error) {
           console.error(`Failed to process tweet ${tweet.id}:`, error);
-          // Reset status back to draft if publishing fails
-          await this.notionService.updateTweetStatus(tweet.id, 'Draft');
+          // Change status to Failed to Post instead of Draft
+          await this.notionService.updateTweetStatus(tweet.id, 'Failed to Post', error instanceof Error ? error.message : 'Unknown error');
         }
       }
     } catch (error) {
@@ -40,13 +42,6 @@ class NotionXPublisher {
 
 // AWS Lambda handler
 export const handler = async (event: any): Promise<any> => {
-  // Add this debug section
-  console.log('Twitter Credentials Check:');
-  console.log('API Key Length:', process.env.TWITTER_API_KEY?.length);
-  console.log('API Secret Length:', process.env.TWITTER_API_SECRET?.length);
-  console.log('Access Token Length:', process.env.TWITTER_ACCESS_TOKEN?.length);
-  console.log('Access Token Secret Length:', process.env.TWITTER_ACCESS_TOKEN_SECRET?.length);
-
   try {
     const notionConfig: NotionConfig = {
       databaseId: process.env.NOTION_DATABASE_ID!,

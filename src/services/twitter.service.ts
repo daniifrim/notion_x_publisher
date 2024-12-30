@@ -3,8 +3,10 @@ import { TwitterConfig, Tweet } from '../types/twitter.types';
 
 export class TwitterService {
   private client: TwitterApi;
+  private config: TwitterConfig;
 
   constructor(config: TwitterConfig) {
+    this.config = config;
     this.client = new TwitterApi({
       appKey: config.apiKey,
       appSecret: config.apiKeySecret,
@@ -110,36 +112,18 @@ export class TwitterService {
     }
   }
 
-  async postTweet(content: string): Promise<Tweet> {
+  async postTweet(content: string): Promise<{ id: string; text: string }> {
     try {
-      // Check rate limits before posting
-      const rateLimits = await this.getRateLimits();
-      if (rateLimits.remaining <= 0) {
-        throw new Error(
-          `Twitter rate limit reached. Cannot post more tweets until ${rateLimits.resetAt.toLocaleString()}`
-        );
-      }
-
-      // Attempt to post the tweet
       const tweet = await this.client.v2.tweet(content);
-      
-      if (!tweet.data) {
-        throw new Error('Failed to post tweet: No response data received');
-      }
-
       return {
         id: tweet.data.id,
-        text: tweet.data.text,
-        createdAt: new Date()
+        text: tweet.data.text
       };
-    } catch (error: any) {
-      console.error('Failed to post tweet:', {
-        error: this.formatRateLimitError(error),
-        code: error.code,
-        details: error.data?.detail || 'No additional details',
-        headers: error.headers,
-        rateLimit: error.rateLimit
-      });
+    } catch (error) {
+      console.error('Twitter API Error:', error);
+      if (error instanceof Error) {
+        throw new Error(`Twitter API Error: ${error.message}`);
+      }
       throw error;
     }
   }
