@@ -88,9 +88,13 @@ export class NotionService {
 
   async validateDatabaseSchema(): Promise<void> {
     try {
+      console.log('🔍 Retrieving database schema...');
       const database = await this.client.databases.retrieve({
         database_id: this.databaseId
       });
+
+      console.log('📊 Database properties found:', Object.keys(database.properties));
+      console.log('🔎 Detailed properties:', JSON.stringify(database.properties, null, 2));
 
       const requiredProperties = [
         'Status',
@@ -103,8 +107,16 @@ export class NotionService {
         'Engagement'
       ];
       
+      console.log('📋 Required properties:', requiredProperties);
+      
       const missingProperties = requiredProperties.filter(
-        prop => !(prop in database.properties)
+        prop => {
+          const exists = prop in database.properties;
+          if (!exists) {
+            console.log(`❌ Missing property: ${prop}`);
+          }
+          return !exists;
+        }
       );
 
       if (missingProperties.length > 0) {
@@ -114,6 +126,7 @@ export class NotionService {
       }
 
       // Validate Status property has correct options
+      console.log('🔍 Validating Status property...');
       const statusProperty = database.properties['Status'] as any;
       if (statusProperty.type !== 'select') {
         throw new Error('Status property must be a select type');
@@ -123,6 +136,8 @@ export class NotionService {
       const availableStatuses = statusProperty.select.options.map(
         (opt: any) => opt.name
       );
+
+      console.log('📋 Available statuses:', availableStatuses);
 
       const missingStatuses = requiredStatuses.filter(
         status => !availableStatuses.includes(status)
@@ -134,23 +149,46 @@ export class NotionService {
         );
       }
 
-      // Validate URL property is url type
+      // Validate property types
+      console.log('🔍 Validating property types...');
+      
+      // URL property
       const urlProperty = database.properties['URL'] as any;
+      console.log('URL property type:', urlProperty.type);
       if (urlProperty.type !== 'url') {
         throw new Error('URL property must be a URL type');
       }
 
-      // Validate date properties
+      // Date properties
       const scheduledTimeProperty = database.properties['Scheduled Time'] as any;
       const publishedDateProperty = database.properties['Published Date'] as any;
+      
+      console.log('Scheduled Time property type:', scheduledTimeProperty.type);
+      console.log('Published Date property type:', publishedDateProperty.type);
+      
       if (scheduledTimeProperty.type !== 'date') {
         throw new Error('Scheduled Time property must be a date type');
       }
       if (publishedDateProperty.type !== 'date') {
         throw new Error('Published Date property must be a date type');
       }
+
+      // Type property
+      const typeProperty = database.properties['Type'] as any;
+      console.log('Type property:', typeProperty);
+      if (typeProperty.type !== 'select') {
+        throw new Error('Type property must be a select type');
+      }
+
+      console.log('✅ All database schema validations passed');
     } catch (error) {
       console.error('Failed to validate database schema:', error);
+      if (error instanceof Error) {
+        console.error('Error details:', {
+          message: error.message,
+          stack: error.stack
+        });
+      }
       throw error;
     }
   }
