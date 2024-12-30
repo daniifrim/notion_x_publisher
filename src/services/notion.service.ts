@@ -25,7 +25,7 @@ export class NotionService {
               }
             },
             {
-              property: 'Publication Date',
+              property: 'Scheduled Time',
               date: {
                 on_or_before: now.toISOString()
               }
@@ -34,7 +34,7 @@ export class NotionService {
         },
         sorts: [
           {
-            property: 'Publication Date',
+            property: 'Scheduled Time',
             direction: 'ascending'
           }
         ]
@@ -43,25 +43,12 @@ export class NotionService {
       return response.results
         .filter((page): page is PageObjectResponse => 'properties' in page)
         .map(page => {
-          const title = page.properties.Name as {
-            title: Array<{ plain_text: string }>
-          };
-          const publicationDate = page.properties['Publication Date'] as {
-            date: { start: string } | null
-          };
-          const status = page.properties.Status as {
-            select: { name: NotionTweet['status'] }
-          };
-          const url = page.properties.URL as {
-            url: string | null
-          };
-
+          const properties = page.properties as any;
           return {
             id: page.id,
-            content: title.title[0].plain_text,
-            publicationDate: publicationDate?.date?.start ? new Date(publicationDate.date.start) : new Date(),
-            status: status.select.name,
-            url: url?.url || undefined
+            content: properties.Name.title[0]?.plain_text || '',
+            scheduledTime: new Date(properties['Scheduled Time'].date?.start || now.toISOString()),
+            status: properties.Status.select?.name || 'Draft'
           };
         });
     } catch (error) {
@@ -70,30 +57,30 @@ export class NotionService {
     }
   }
 
-  async updateTweetStatus(tweetId: string, status: NotionTweet['status'], url?: string): Promise<void> {
-    try {
-      const updateData: any = {
-        page_id: tweetId,
-        properties: {
-          Status: {
-            select: {
-              name: status
-            }
-          }
+  async updateTweetStatus(pageId: string, status: NotionTweet['status'], url?: string): Promise<void> {
+    const properties: any = {
+      'Status': {
+        select: {
+          name: status
+        }
+      }
+    };
+
+    if (status === 'Published') {
+      properties['URL'] = {
+        url: url
+      };
+      properties['Published Date'] = {
+        date: {
+          start: new Date().toISOString()
         }
       };
-
-      if (url) {
-        updateData.properties.URL = {
-          url: url
-        };
-      }
-
-      await this.client.pages.update(updateData);
-    } catch (error) {
-      console.error(`Failed to update tweet status in Notion:`, error);
-      throw error;
     }
+
+    await this.client.pages.update({
+      page_id: pageId,
+      properties
+    });
   }
 
   async validateDatabaseSchema(): Promise<void> {

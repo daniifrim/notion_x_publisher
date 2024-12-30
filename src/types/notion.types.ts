@@ -1,9 +1,10 @@
 export interface NotionTweet {
   id: string;
   content: string;
-  publicationDate: Date;
+  scheduledTime: Date;
   status: 'Draft' | 'Ready To Publish' | 'Published' | 'Failed to Post';
   url?: string;
+  publishedDate?: Date;
 }
 
 export interface NotionConfig {

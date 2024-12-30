@@ -1,5 +1,6 @@
 import { NotionService } from './notion.service';
 import { TwitterService } from './twitter.service';
+import { NotionTweet } from '../types/notion.types';
 
 export class SchedulerService {
   private notionService: NotionService;
@@ -10,46 +11,38 @@ export class SchedulerService {
     this.twitterService = twitterService;
   }
 
+  private shouldPublishTweet(tweet: NotionTweet): boolean {
+    const now = new Date();
+    const tweetTime = tweet.scheduledTime;
+    
+    // Check if the tweet is scheduled within the next 5 minutes
+    const fiveMinutesFromNow = new Date(now.getTime() + 5 * 60 * 1000);
+    
+    return tweetTime >= now && tweetTime <= fiveMinutesFromNow;
+  }
+
   async processScheduledTweets(): Promise<void> {
     try {
-      // Check Twitter rate limits first
-      const rateLimits = await this.twitterService.getRateLimits();
-      if (rateLimits.remaining <= 0) {
-        console.log(`⏳ Rate limit reached. Waiting until ${rateLimits.resetAt.toLocaleString()}`);
-        return;
-      }
-
-      // Get tweets that are ready and due for publication
       const readyTweets = await this.notionService.getReadyTweets();
-      console.log(`📝 Found ${readyTweets.length} tweets ready to publish`);
+      
+      // Sort tweets by scheduled time
+      const sortedTweets = readyTweets.sort((a, b) => 
+        a.scheduledTime.getTime() - b.scheduledTime.getTime()
+      );
 
-      for (const tweet of readyTweets) {
-        try {
-          // Double check rate limits before each tweet
-          const currentLimits = await this.twitterService.getRateLimits();
-          if (currentLimits.remaining <= 0) {
-            console.log('⏳ Rate limit reached during processing. Remaining tweets will be processed in the next run.');
-            break;
+      for (const tweet of sortedTweets) {
+        if (this.shouldPublishTweet(tweet)) {
+          try {
+            const publishedTweet = await this.twitterService.postTweet(tweet.content);
+            await this.notionService.updateTweetStatus(tweet.id, 'Published', publishedTweet.url);
+          } catch (error) {
+            console.error(`Failed to publish scheduled tweet ${tweet.id}:`, error);
+            await this.notionService.updateTweetStatus(tweet.id, 'Failed to Post');
           }
-
-          console.log(`\n🐦 Publishing scheduled tweet: "${tweet.content}"`);
-          console.log(`📅 Scheduled for: ${tweet.publicationDate.toLocaleString()}`);
-          
-          const publishedTweet = await this.twitterService.postTweet(tweet.content);
-          console.log('✅ Tweet published successfully');
-
-          // Update Notion with the tweet URL
-          const tweetUrl = `https://twitter.com/user/status/${publishedTweet.id}`;
-          await this.notionService.updateTweetStatus(tweet.id, 'Published', tweetUrl);
-          console.log('✅ Notion status updated');
-        } catch (error) {
-          console.error('❌ Failed to process tweet:', error);
-          await this.notionService.updateTweetStatus(tweet.id, 'Failed to Post');
-          console.log('⚠️ Tweet status updated to Failed to Post');
         }
       }
     } catch (error) {
-      console.error('❌ Scheduler error:', error);
+      console.error('Failed to process scheduled tweets:', error);
       throw error;
     }
   }

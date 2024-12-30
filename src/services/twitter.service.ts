@@ -4,6 +4,7 @@ import { TwitterConfig, Tweet } from '../types/twitter.types';
 export class TwitterService {
   private client: TwitterApi;
   private config: TwitterConfig;
+  private username: string = '';
 
   constructor(config: TwitterConfig) {
     this.config = config;
@@ -13,6 +14,11 @@ export class TwitterService {
       accessToken: config.accessToken,
       accessSecret: config.accessTokenSecret,
     });
+  }
+
+  async initialize(): Promise<void> {
+    const me = await this.client.v2.me();
+    this.username = me.data.username;
   }
 
   private formatRateLimitError(error: any): string {
@@ -112,12 +118,16 @@ export class TwitterService {
     }
   }
 
-  async postTweet(content: string): Promise<{ id: string; text: string }> {
+  async postTweet(content: string): Promise<{ id: string; text: string; url: string }> {
     try {
+      if (!this.username) {
+        await this.initialize();
+      }
       const tweet = await this.client.v2.tweet(content);
       return {
         id: tweet.data.id,
-        text: tweet.data.text
+        text: tweet.data.text,
+        url: `https://x.com/${this.username}/status/${tweet.data.id}`
       };
     } catch (error) {
       console.error('Twitter API Error:', error);

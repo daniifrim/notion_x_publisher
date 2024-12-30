@@ -15,6 +15,8 @@ class NotionXPublisher {
   async initialize(): Promise<void> {
     // Validate Notion database schema before proceeding
     await this.notionService.validateDatabaseSchema();
+    // Initialize Twitter service
+    await this.twitterService.initialize();
   }
 
   async processReadyTweets(): Promise<void> {
@@ -26,10 +28,9 @@ class NotionXPublisher {
           console.log('Attempting to post tweet:', tweet.content);
           const publishedTweet = await this.twitterService.postTweet(tweet.content);
           console.log('Successfully posted tweet:', publishedTweet.text);
-          await this.notionService.updateTweetStatus(tweet.id, 'Published', publishedTweet.text);
+          await this.notionService.updateTweetStatus(tweet.id, 'Published', publishedTweet.url);
         } catch (error) {
           console.error(`Failed to process tweet ${tweet.id}:`, error);
-          // Change status to Failed to Post instead of Draft
           await this.notionService.updateTweetStatus(tweet.id, 'Failed to Post', error instanceof Error ? error.message : 'Unknown error');
         }
       }
