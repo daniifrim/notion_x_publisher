@@ -1,49 +1,192 @@
-import { NotionService } from './notion.service';
 import { TwitterService } from './twitter.service';
+import { NotionService } from './notion.service';
+import { SchedulerConfig, ScheduledTweet, SchedulerResult } from '../types/scheduler.types';
 import { NotionTweet } from '../types/notion.types';
 
 export class SchedulerService {
-  private notionService: NotionService;
+  private config: SchedulerConfig;
   private twitterService: TwitterService;
+  private notionService: NotionService;
 
-  constructor(notionService: NotionService, twitterService: TwitterService) {
-    this.notionService = notionService;
+  constructor(
+    config: SchedulerConfig,
+    twitterService: TwitterService,
+    notionService: NotionService
+  ) {
+    this.config = config;
     this.twitterService = twitterService;
+    this.notionService = notionService;
   }
 
-  private shouldPublishTweet(tweet: NotionTweet): boolean {
-    const now = new Date();
-    const tweetTime = tweet.scheduledTime;
-    
-    // Check if the tweet is scheduled within the next 5 minutes
-    const fiveMinutesFromNow = new Date(now.getTime() + 5 * 60 * 1000);
-    
-    return tweetTime >= now && tweetTime <= fiveMinutesFromNow;
-  }
-
-  async processScheduledTweets(): Promise<void> {
+  private async processSingleTweet(tweet: ScheduledTweet): Promise<boolean> {
     try {
-      const readyTweets = await this.notionService.getReadyTweets();
-      
-      // Sort tweets by scheduled time
-      const sortedTweets = readyTweets.sort((a, b) => 
-        a.scheduledTime.getTime() - b.scheduledTime.getTime()
-      );
+      // Check if it's time to publish
+      if (tweet.scheduledTime > new Date()) {
+        return false; // Not time yet
+      }
 
-      for (const tweet of sortedTweets) {
-        if (this.shouldPublishTweet(tweet)) {
-          try {
-            const publishedTweet = await this.twitterService.postTweet(tweet.content);
-            await this.notionService.updateTweetStatus(tweet.id, 'Published', publishedTweet.url);
-          } catch (error) {
-            console.error(`Failed to publish scheduled tweet ${tweet.id}:`, error);
-            await this.notionService.updateTweetStatus(tweet.id, 'Failed to Post');
+      // Update status to Processing
+      await this.notionService.updateTweetStatus(tweet.id, 'Processing');
+
+      // Handle thread vs single tweet
+      let result;
+      if (tweet.threadId) {
+        // Get all tweets in the thread
+        const notionTweets = await this.notionService.getReadyTweets();
+        const threadTweets = notionTweets
+          .filter(t => t.isThread && t.title === tweet.threadId)
+          .sort((a, b) => (a.content > b.content ? 1 : -1));
+
+        // Post thread
+        result = await this.twitterService.postThread(
+          threadTweets.map(t => t.content)
+        );
+
+        // Update all thread tweets
+        for (const threadTweet of threadTweets) {
+          await this.notionService.updateTweetStatus(
+            threadTweet.id,
+            'Published',
+            result.threadUrl
+          );
+        }
+      } else {
+        // Post single tweet
+        result = await this.twitterService.postTweet(tweet.content);
+        await this.notionService.updateTweetStatus(
+          tweet.id,
+          'Published',
+          result.url
+        );
+      }
+
+      return true;
+    } catch (error) {
+      console.error(`Failed to process tweet ${tweet.id}:`, error);
+      
+      // Update retry count and status
+      tweet.retryCount++;
+      tweet.lastAttempt = new Date();
+      tweet.error = error instanceof Error ? error.message : 'Unknown error';
+
+      if (tweet.retryCount >= this.config.maxRetries) {
+        await this.notionService.updateTweetStatus(
+          tweet.id,
+          'Failed to Post',
+          undefined,
+          tweet.error
+        );
+      }
+
+      return false;
+    }
+  }
+
+  async processQueue(): Promise<SchedulerResult> {
+    const result: SchedulerResult = {
+      success: true,
+      message: 'Tweet processing completed',
+      tweetsProcessed: 0,
+      errors: []
+    };
+
+    try {
+      // Get all ready tweets from Notion
+      const tweets = await this.notionService.getReadyTweets();
+      
+      // Convert to ScheduledTweet format
+      const scheduledTweets: ScheduledTweet[] = tweets.map(tweet => ({
+        id: tweet.id,
+        content: tweet.content,
+        scheduledTime: tweet.scheduledTime,
+        status: 'Pending',
+        retryCount: 0,
+        threadId: tweet.isThread ? tweet.title : undefined
+      }));
+
+      // Process each tweet
+      for (const tweet of scheduledTweets) {
+        try {
+          const processed = await this.processSingleTweet(tweet);
+          if (processed) {
+            result.tweetsProcessed++;
           }
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          result.errors.push(`Failed to process tweet ${tweet.id}: ${errorMessage}`);
         }
       }
+
+      // Update result based on processing
+      if (result.errors.length > 0) {
+        result.success = false;
+        result.message = `Completed with ${result.errors.length} errors`;
+      }
+
+      return result;
     } catch (error) {
-      console.error('Failed to process scheduled tweets:', error);
-      throw error;
+      console.error('Failed to process tweet queue:', error);
+      return {
+        success: false,
+        message: 'Failed to process tweet queue',
+        tweetsProcessed: result.tweetsProcessed,
+        errors: [...result.errors, error instanceof Error ? error.message : 'Unknown error']
+      };
+    }
+  }
+
+  async retryFailedTweets(): Promise<SchedulerResult> {
+    const result: SchedulerResult = {
+      success: true,
+      message: 'Retry processing completed',
+      tweetsProcessed: 0,
+      errors: []
+    };
+
+    try {
+      // Get failed tweets that haven't exceeded retry limit
+      const tweets = await this.notionService.getReadyTweets();
+      const failedTweets = tweets.filter(
+        tweet => tweet.status === 'Failed to Post'
+      );
+
+      // Process each failed tweet
+      for (const tweet of failedTweets) {
+        const scheduledTweet: ScheduledTweet = {
+          id: tweet.id,
+          content: tweet.content,
+          scheduledTime: tweet.scheduledTime,
+          status: 'Pending',
+          retryCount: 0,
+          threadId: tweet.isThread ? tweet.title : undefined
+        };
+
+        try {
+          const processed = await this.processSingleTweet(scheduledTweet);
+          if (processed) {
+            result.tweetsProcessed++;
+          }
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          result.errors.push(`Failed to retry tweet ${tweet.id}: ${errorMessage}`);
+        }
+      }
+
+      // Update result based on processing
+      if (result.errors.length > 0) {
+        result.success = false;
+        result.message = `Retry completed with ${result.errors.length} errors`;
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Failed to retry failed tweets:', error);
+      return {
+        success: false,
+        message: 'Failed to process retry queue',
+        tweetsProcessed: result.tweetsProcessed,
+        errors: [...result.errors, error instanceof Error ? error.message : 'Unknown error']
+      };
     }
   }
 } 
