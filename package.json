@@ -11,7 +11,8 @@
     "test:scheduler": "ts-node src/test-scheduler.ts",
     "test": "echo \"Error: no test specified\" && exit 1",
     "deploy": "serverless deploy",
-    "offline": "serverless offline"
+    "offline": "serverless offline",
+    "test:draft-processor": "ts-node src/test-draft-processor.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

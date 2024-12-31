@@ -1,6 +1,7 @@
 import { Client } from '@notionhq/client';
 import { PageObjectResponse } from '@notionhq/client/build/src/api-endpoints';
 import { NotionTweet, NotionConfig, NotionBlock, NotionInputConfig, NotionInputBlock } from '../types/notion.types';
+import { DraftTweet, TweetStatus } from '../types/draft-processor.types';
 
 export class NotionService {
   private client: Client;
@@ -491,5 +492,100 @@ export class NotionService {
     }
 
     return blocks;
+  }
+
+  async getDrafts(): Promise<DraftTweet[]> {
+    try {
+      const response = await this.client.databases.query({
+        database_id: this.databaseId,
+        filter: {
+          property: 'Status',
+          select: {
+            equals: 'Draft'
+          }
+        }
+      });
+
+      return response.results
+        .filter((page): page is PageObjectResponse => 'properties' in page)
+        .map(page => {
+          const properties = page.properties as Record<string, any>;
+          const titleProperty = properties.Idea;
+          
+          if (!titleProperty || !Array.isArray(titleProperty.title)) {
+            console.warn(`Page ${page.id} has invalid Idea property`);
+            return {
+              id: page.id,
+              title: 'Untitled',
+              status: 'Draft' as TweetStatus
+            };
+          }
+
+          const title = titleProperty.title[0]?.plain_text || 'Untitled';
+          console.log(`Found draft: "${title}"`);
+          
+          return {
+            id: page.id,
+            title: title,
+            status: 'Draft' as TweetStatus
+          };
+        })
+        .filter(draft => draft.title !== 'Untitled');
+    } catch (error) {
+      console.error('Failed to get drafts:', error);
+      throw error;
+    }
+  }
+
+  async updateDraftWithVariations(pageId: string, variations: string[]): Promise<void> {
+    try {
+      // First update the page status to 'AI Processed'
+      await this.client.pages.update({
+        page_id: pageId,
+        properties: {
+          'Status': {
+            select: {
+              name: 'AI Processed'
+            }
+          }
+        }
+      });
+
+      // Then append the variations as blocks
+      const blocks = variations.map(variation => ({
+        object: 'block' as const,
+        type: 'paragraph' as const,
+        paragraph: {
+          rich_text: [{
+            type: 'text' as const,
+            text: {
+              content: variation
+            }
+          }]
+        }
+      }));
+
+      await this.client.blocks.children.append({
+        block_id: pageId,
+        children: [
+          {
+            object: 'block' as const,
+            type: 'heading_2' as const,
+            heading_2: {
+              rich_text: [{
+                type: 'text' as const,
+                text: {
+                  content: 'Tweet Variations'
+                }
+              }]
+            }
+          },
+          ...blocks
+        ]
+      });
+    } catch (error) {
+      console.error('Failed to update draft with variations:', error);
+      throw error;
+    }
   }
 } 
