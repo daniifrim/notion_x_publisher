@@ -9,6 +9,7 @@
     "start:local": "ts-node src/local.ts",
     "test:scraper": "ts-node src/test-scraper.ts",
     "test:scheduler": "ts-node src/test-scheduler.ts",
+    "test:extraction": "ts-node src/test-tweet-extraction.ts",
     "test": "echo \"Error: no test specified\" && exit 1",
     "deploy": "serverless deploy",
     "offline": "serverless offline",

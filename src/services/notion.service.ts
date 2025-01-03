@@ -27,50 +27,45 @@ export class NotionService {
     }
   }
 
-  private async extractThreadContent(pageId: string): Promise<string[]> {
-    const blocks = await this.getPageBlocks(pageId);
-    const tweets: string[] = [];
-    let currentTweet: string[] = [];
+  private async extractTweetContent(page: any): Promise<string> {
+    try {
+      const blocks = await this.client.blocks.children.list({
+        block_id: page.id
+      });
 
-    console.log('🧵 Extracting thread content from blocks...');
-
-    for (const block of blocks) {
-      if (block.type === 'divider') {
-        // When we hit a divider, join the current tweet content and add it to tweets
-        if (currentTweet.length > 0) {
-          const tweetContent = currentTweet.join('\n').trim();
-          console.log('📝 Adding tweet:', tweetContent);
-          tweets.push(tweetContent);
-          currentTweet = [];
-        }
-      } else if (block.type === 'paragraph') {
-        const richText = block.paragraph?.rich_text;
-        if (richText && richText.length > 0) {
-          // Add paragraph content to current tweet
-          const text = richText
-            .map(rt => rt.plain_text)
-            .join('')
-            .trim();
-          
-          if (text.length > 0) {
-            console.log('📄 Adding paragraph:', text);
-            currentTweet.push(text);
-          }
-        }
+      // For threads, join blocks with a separator
+      if (page.properties['Thread']?.checkbox) {
+        return blocks.results
+          .map(block => {
+            // Type guard for paragraph blocks
+            if ('type' in block && block.type === 'paragraph' && 'paragraph' in block) {
+              return block.paragraph.rich_text
+                .map((text: { plain_text: string }) => text.plain_text)
+                .join('');
+            }
+            return '';
+          })
+          .filter(text => text.length > 0)
+          .join('\n\n---\n\n');
       }
-    }
 
-    // Don't forget the last tweet if it exists
-    if (currentTweet.length > 0) {
-      const tweetContent = currentTweet.join('\n').trim();
-      console.log('📝 Adding final tweet:', tweetContent);
-      tweets.push(tweetContent);
+      // For single tweets, join all blocks into one tweet
+      return blocks.results
+        .map(block => {
+          // Type guard for paragraph blocks
+          if ('type' in block && block.type === 'paragraph' && 'paragraph' in block) {
+            return block.paragraph.rich_text
+              .map((text: { plain_text: string }) => text.plain_text)
+              .join('');
+          }
+          return '';
+        })
+        .filter(text => text.length > 0)
+        .join('\n\n');
+    } catch (error) {
+      console.error('Failed to extract tweet content:', error);
+      throw error;
     }
-
-    // Filter out any empty tweets
-    const filteredTweets = tweets.filter(tweet => tweet.length > 0);
-    console.log(`✅ Extracted ${filteredTweets.length} tweets from thread`);
-    return filteredTweets;
   }
 
   async getReadyTweets(): Promise<NotionTweet[]> {
@@ -127,9 +122,9 @@ export class NotionService {
             if (isThread) {
               console.log('🔍 Getting thread content...');
               // For threads, we'll get the content from the page blocks
-              const threadContent = await this.extractThreadContent(page.id);
+              const threadContent = await this.extractTweetContent(page);
               console.log('📝 Thread tweets:', threadContent);
-              content = threadContent.join('\n');
+              content = threadContent;
             }
 
             const tweet = {
