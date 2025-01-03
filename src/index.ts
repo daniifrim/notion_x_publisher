@@ -22,8 +22,10 @@
  * Note: This is the main production entry point
  */
 
-// Export Lambda handlers with unique names
-export { handler as scheduledHandler } from './scheduled';
+// Export the main handler as default for AWS Lambda
+export { handler as default } from './scheduled';
+
+// Export other handlers with unique names
 export { handler as scraperHandler } from './functions/scraper';
 export { handler as schedulerHandler } from './functions/scheduler';
 
