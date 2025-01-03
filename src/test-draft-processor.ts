@@ -1,3 +1,33 @@
+/**
+ * Tweet Draft Processor Testing Script
+ * 
+ * This script tests the AI-powered draft processing functionality locally.
+ * It processes draft tweets from Notion, generates variations using AI,
+ * and updates the Notion database with the results.
+ * 
+ * Features Tested:
+ * 1. Draft Tweet Retrieval: Gets drafts from Notion
+ * 2. AI Processing: Uses OpenAI to generate tweet variations
+ * 3. Notion Updates: Saves generated variations back to Notion
+ * 4. Error Handling: Tests error cases and recovery
+ * 
+ * AI Configuration:
+ * - Model: Uses the model specified in AI_CONFIG
+ * - Max Tokens: Configured in AI_CONFIG
+ * - Temperature: Controls creativity level
+ * 
+ * Usage:
+ * - Run with: npm run test:drafts
+ * - Requires .env file with OPENAI_API_KEY and NOTION credentials
+ * 
+ * Related Files:
+ * - services/draft-processor.service.ts: Core draft processing logic
+ * - services/ai.service.ts: OpenAI integration
+ * - config/ai.config.ts: AI model configuration
+ * 
+ * Note: This is a testing script, not used in production
+ */
+
 import { config } from 'dotenv';
 import { NotionService } from './services/notion.service';
 import { DraftProcessorService } from './services/draft-processor.service';

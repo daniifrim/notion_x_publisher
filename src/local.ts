@@ -1,3 +1,26 @@
+/**
+ * Local Development Runner
+ * 
+ * This script is used for local testing and development. It simulates the behavior
+ * of the Lambda functions without needing to deploy to AWS.
+ * 
+ * Features:
+ * 1. Environment validation
+ * 2. Notion database schema validation
+ * 3. Twitter credentials verification
+ * 4. Manual tweet processing
+ * 
+ * Usage:
+ * - Run with: npm run local
+ * - Requires .env file with all necessary credentials
+ * 
+ * Related Files:
+ * - scheduled.ts: The actual Lambda function this simulates
+ * - services/*.ts: All service files used in production
+ * 
+ * Note: This is NOT deployed to AWS - it's only for local development
+ */
+
 import * as dotenv from 'dotenv';
 import { NotionService } from './services/notion.service';
 import { TwitterService } from './services/twitter.service';

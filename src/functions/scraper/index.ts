@@ -1,3 +1,23 @@
+/**
+ * AWS Lambda Handler: Tweet Scraper and Analyzer
+ * 
+ * This Lambda function runs hourly to scrape tweets based on configured interests
+ * and analyze them using AI. It helps in understanding engagement patterns and content themes.
+ * 
+ * Process Flow:
+ * 1. Gets configuration (interests, accounts to follow) from Notion
+ * 2. Uses Apify to scrape relevant tweets
+ * 3. Analyzes tweets using OpenAI
+ * 4. Stores analysis results in Notion
+ * 
+ * Related Files:
+ * - services/scraper.service.ts: Handles tweet scraping via Apify
+ * - services/ai.service.ts: Manages OpenAI interactions
+ * - services/notion.service.ts: Handles Notion database operations
+ * 
+ * Trigger: Separate EventBridge rule (recommended: every hour)
+ */
+
 import { ScraperService } from '../../services/scraper.service';
 import { AIService } from '../../services/ai.service';
 import { NotionService } from '../../services/notion.service';

@@ -1,3 +1,26 @@
+/**
+ * Tweet Scraper Testing Script
+ * 
+ * This script is used to test the tweet scraping and analysis functionality locally.
+ * It helps verify that Apify scraping and OpenAI analysis are working correctly.
+ * 
+ * Features:
+ * 1. Tests Apify tweet scraping
+ * 2. Tests OpenAI tweet analysis
+ * 3. Tests Notion integration for storing results
+ * 
+ * Usage:
+ * - Run with: npm run test:scraper
+ * - Requires .env file with APIFY_API_TOKEN, OPENAI_API_KEY, and NOTION credentials
+ * 
+ * Related Files:
+ * - functions/scraper/index.ts: The actual Lambda function this tests
+ * - services/scraper.service.ts: Tweet scraping logic
+ * - services/ai.service.ts: OpenAI analysis logic
+ * 
+ * Note: This is a testing script, not used in production
+ */
+
 import dotenv from 'dotenv';
 import { ScraperService } from './services/scraper.service';
 import { AIService } from './services/ai.service';

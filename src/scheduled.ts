@@ -1,3 +1,24 @@
+/**
+ * AWS Lambda Handler: Main Tweet Publisher
+ * 
+ * This is the main Lambda function that runs every 5 minutes via EventBridge trigger.
+ * It handles the core functionality of checking Notion for ready tweets and publishing them to Twitter.
+ * 
+ * Process Flow:
+ * 1. Checks Notion database for tweets with "Ready to Publish" status
+ * 2. For each ready tweet:
+ *    - Validates the content
+ *    - Posts to Twitter
+ *    - Updates status in Notion to "Published" or "Failed to Post"
+ * 
+ * Related Files:
+ * - services/notion.service.ts: Handles all Notion database operations
+ * - services/twitter.service.ts: Manages Twitter API interactions
+ * - types/notion.types.ts: Type definitions for Notion data
+ * 
+ * Trigger: EventBridge rule "notion-x-publisher-schedule" (every 5 minutes)
+ */
+
 import * as dotenv from 'dotenv';
 import { NotionService } from './services/notion.service';
 import { TwitterService } from './services/twitter.service';

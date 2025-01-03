@@ -1,3 +1,32 @@
+/**
+ * Tweet Scheduler Testing Script
+ * 
+ * This script tests the tweet scheduling functionality locally, including the retry
+ * mechanism for failed tweets. It simulates the behavior of the scheduler Lambda
+ * function without deploying to AWS.
+ * 
+ * Test Coverage:
+ * 1. Queue Processing: Tests the main tweet publishing queue
+ * 2. Retry Logic: Tests the retry mechanism for failed tweets
+ * 3. Error Handling: Verifies error handling and status updates
+ * 
+ * Configuration Testing:
+ * - Check Interval: 5 minutes
+ * - Max Retries: 3 attempts
+ * - Retry Delay: 15 minutes between attempts
+ * 
+ * Usage:
+ * - Run with: npm run test:scheduler
+ * - Requires .env file with Twitter and Notion credentials
+ * 
+ * Related Files:
+ * - functions/scheduler/index.ts: The actual Lambda function this tests
+ * - services/scheduler.service.ts: Core scheduling logic
+ * - services/twitter.service.ts: Twitter API integration
+ * 
+ * Note: This is a testing script, not used in production
+ */
+
 import dotenv from 'dotenv';
 import { TwitterService } from './services/twitter.service';
 import { NotionService } from './services/notion.service';

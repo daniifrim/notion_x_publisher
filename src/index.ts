@@ -1,81 +1,43 @@
-import { NotionService } from './services/notion.service';
-import { TwitterService } from './services/twitter.service';
-import { NotionConfig } from './types/notion.types';
-import { TwitterConfig } from './types/twitter.types';
+/**
+ * Main Application Entry Point
+ * 
+ * This is the primary entry point for the application when running in production.
+ * It exports all the Lambda handlers and shared services that can be used by
+ * different parts of the application.
+ * 
+ * Exports:
+ * - Lambda Handlers: scheduled, scraper, scheduler
+ * - Services: NotionService, TwitterService, AIService, ScraperService
+ * - Types and Configurations
+ * 
+ * Usage:
+ * - AWS Lambda uses this to import the handlers
+ * - Other parts of the application import services from here
+ * 
+ * Related Files:
+ * - scheduled.ts: Main tweet publisher Lambda
+ * - functions/scraper/index.ts: Tweet scraper Lambda
+ * - functions/scheduler/index.ts: Tweet scheduler Lambda
+ * 
+ * Note: This is the main production entry point
+ */
 
-class NotionXPublisher {
-  private notionService: NotionService;
-  private twitterService: TwitterService;
+// Export Lambda handlers with unique names
+export { handler as scheduledHandler } from './scheduled';
+export { handler as scraperHandler } from './functions/scraper';
+export { handler as schedulerHandler } from './functions/scheduler';
 
-  constructor(notionConfig: NotionConfig, twitterConfig: TwitterConfig) {
-    this.notionService = new NotionService(notionConfig);
-    this.twitterService = new TwitterService(twitterConfig);
-  }
+// Export services
+export * from './services/notion.service';
+export * from './services/twitter.service';
+export * from './services/ai.service';
+export * from './services/scraper.service';
+export * from './services/scheduler.service';
 
-  async initialize(): Promise<void> {
-    // Validate Notion database schema before proceeding
-    await this.notionService.validateDatabaseSchema();
-    // Initialize Twitter service
-    await this.twitterService.initialize();
-  }
-
-  async processReadyTweets(): Promise<void> {
-    try {
-      const readyTweets = await this.notionService.getReadyTweets();
-      
-      for (const tweet of readyTweets) {
-        try {
-          console.log('Attempting to post tweet:', tweet.content);
-          const publishedTweet = await this.twitterService.postTweet(tweet.content);
-          console.log('Successfully posted tweet:', publishedTweet.text);
-          await this.notionService.updateTweetStatus(tweet.id, 'Published', publishedTweet.url);
-        } catch (error) {
-          console.error(`Failed to process tweet ${tweet.id}:`, error);
-          await this.notionService.updateTweetStatus(tweet.id, 'Failed to Post', error instanceof Error ? error.message : 'Unknown error');
-        }
-      }
-    } catch (error) {
-      console.error('Failed to process tweets:', error);
-      throw error;
-    }
-  }
-}
-
-// AWS Lambda handler
-export const handler = async (event: any): Promise<any> => {
-  try {
-    const notionConfig: NotionConfig = {
-      databaseId: process.env.NOTION_DATABASE_ID!,
-      apiKey: process.env.NOTION_API_KEY!
-    };
-
-    const twitterConfig: TwitterConfig = {
-      apiKey: process.env.TWITTER_API_KEY!,
-      apiKeySecret: process.env.TWITTER_API_SECRET!,
-      accessToken: process.env.TWITTER_ACCESS_TOKEN!,
-      accessTokenSecret: process.env.TWITTER_ACCESS_TOKEN_SECRET!
-    };
-
-    const publisher = new NotionXPublisher(notionConfig, twitterConfig);
-    
-    // Initialize and validate database schema
-    await publisher.initialize();
-    
-    // Process tweets
-    await publisher.processReadyTweets();
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ message: 'Successfully processed tweets' })
-    };
-  } catch (error) {
-    console.error('Lambda execution failed:', error);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ 
-        message: 'Failed to process tweets',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      })
-    };
-  }
-}; 
+// Export types and configs
+export * from './types/notion.types';
+export * from './types/twitter.types';
+export * from './types/ai.types';
+export * from './types/scraper.types';
+export * from './types/scheduler.types';
+export * from './config/ai.config'; 
