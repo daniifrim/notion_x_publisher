@@ -5,7 +5,7 @@ import { NotionTweet } from '../types/notion.types';
 
 export class SchedulerService {
   private config: SchedulerConfig;
-  private twitterService: TwitterService;
+  private twitterService: TwitterService; 
   private notionService: NotionService;
 
   constructor(
