@@ -22,8 +22,8 @@
  */
 
 import * as dotenv from 'dotenv';
-import { TwitterService } from './services/twitter.service';
-import { TwitterConfig } from './types/twitter.types';
+import { TwitterService } from '../services/twitter.service';
+import { TwitterConfig } from '../types/twitter.types';
 
 // Load environment variables
 dotenv.config();

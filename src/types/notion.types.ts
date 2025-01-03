@@ -1,33 +1,27 @@
+import { Client } from '@notionhq/client';
+
+export type NotionStatus = 'Draft' | 'Processed' | 'Ready To Publish' | 'Published' | 'Failed to Post';
+
+export interface NotionConfig {
+  apiKey: string;
+  databaseId: string;
+}
+
 export interface NotionTweet {
   id: string;
-  content: string;
-  scheduledTime: Date;
-  status: 'Draft' | 'Processed' | 'Ready To Publish' | 'Published' | 'Failed to Post';
-  url?: string;
-  publishedDate?: Date;
-  effort?: string;
-  engagement?: string;
-  isThread?: boolean;
   title?: string;
+  content: string;
+  status: NotionStatus;
+  url?: string;
+  scheduledTime: Date;
+  isThread: boolean;
   error?: string;
 }
 
-export interface NotionConfig {
-  databaseId: string;
-  apiKey: string;
-}
-
 export interface NotionBlock {
+  id: string;
   type: string;
-  paragraph?: {
-    rich_text: Array<{
-      type: string;
-      text: {
-        content: string;
-      };
-      plain_text: string;
-    }>;
-  };
+  [key: string]: any;
 }
 
 export interface NotionInputConfig {
@@ -36,8 +30,7 @@ export interface NotionInputConfig {
   accountsToFollow: string[];
 }
 
-export interface NotionInputBlock {
-  type: string;
+export interface NotionInputBlock extends NotionBlock {
   heading_2?: {
     rich_text: Array<{
       plain_text: string;

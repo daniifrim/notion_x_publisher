@@ -4,12 +4,18 @@ exports.TwitterService = void 0;
 const twitter_api_v2_1 = require("twitter-api-v2");
 class TwitterService {
     constructor(config) {
+        this.username = '';
+        this.config = config;
         this.client = new twitter_api_v2_1.TwitterApi({
             appKey: config.apiKey,
             appSecret: config.apiKeySecret,
             accessToken: config.accessToken,
             accessSecret: config.accessTokenSecret,
         });
+    }
+    async initialize() {
+        const me = await this.client.v2.me();
+        this.username = me.data.username;
     }
     formatRateLimitError(error) {
         if (error.code === 429) {
@@ -98,30 +104,52 @@ class TwitterService {
     }
     async postTweet(content) {
         try {
-            // Check rate limits before posting
-            const rateLimits = await this.getRateLimits();
-            if (rateLimits.remaining <= 0) {
-                throw new Error(`Twitter rate limit reached. Cannot post more tweets until ${rateLimits.resetAt.toLocaleString()}`);
+            if (!this.username) {
+                await this.initialize();
             }
-            // Attempt to post the tweet
             const tweet = await this.client.v2.tweet(content);
-            if (!tweet.data) {
-                throw new Error('Failed to post tweet: No response data received');
-            }
             return {
                 id: tweet.data.id,
                 text: tweet.data.text,
-                createdAt: new Date()
+                url: `https://x.com/${this.username}/status/${tweet.data.id}`
             };
         }
         catch (error) {
-            console.error('Failed to post tweet:', {
-                error: this.formatRateLimitError(error),
-                code: error.code,
-                details: error.data?.detail || 'No additional details',
-                headers: error.headers,
-                rateLimit: error.rateLimit
-            });
+            console.error('Twitter API Error:', error);
+            if (error instanceof Error) {
+                throw new Error(`Twitter API Error: ${error.message}`);
+            }
+            throw error;
+        }
+    }
+    async postThread(tweets) {
+        try {
+            if (!this.username) {
+                await this.initialize();
+            }
+            if (!tweets.length) {
+                throw new Error('Thread must contain at least one tweet');
+            }
+            const tweetIds = [];
+            let replyToId;
+            // Post each tweet in the thread
+            for (const tweetContent of tweets) {
+                const tweetData = replyToId
+                    ? await this.client.v2.tweet(tweetContent, { reply: { in_reply_to_tweet_id: replyToId } })
+                    : await this.client.v2.tweet(tweetContent);
+                tweetIds.push(tweetData.data.id);
+                replyToId = tweetData.data.id;
+            }
+            return {
+                threadUrl: `https://x.com/${this.username}/status/${tweetIds[0]}`,
+                tweetIds
+            };
+        }
+        catch (error) {
+            console.error('Twitter Thread Error:', error);
+            if (error instanceof Error) {
+                throw new Error(`Twitter Thread Error: ${error.message}`);
+            }
             throw error;
         }
     }
@@ -132,3 +160,4 @@ class TwitterService {
     }
 }
 exports.TwitterService = TwitterService;
+//# sourceMappingURL=twitter.service.js.map

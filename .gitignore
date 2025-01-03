@@ -37,7 +37,10 @@ coverage/
 !*.config.js
 !jest.config.js
 
-# Android app
+# Android app directory
 android-app/
 
+# Compiled output
+dist/**/*.js
+dist/**/*.js.map
 

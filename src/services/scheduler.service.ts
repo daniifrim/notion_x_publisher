@@ -2,7 +2,7 @@ import { TwitterService } from './twitter.service';
 import { NotionService } from './notion.service';
 import { NotificationService } from './notification.service';
 import { SchedulerConfig, SchedulerDependencies, ScheduledTweet, SchedulerResult } from '../types/scheduler.types';
-import { NotionTweet } from '../types/notion.types';
+import { NotionTweet, NotionStatus } from '../types/notion.types';
 
 export class SchedulerService {
   private config: SchedulerConfig;
@@ -123,7 +123,7 @@ export class SchedulerService {
         id: tweet.id,
         content: tweet.content,
         scheduledTime: tweet.scheduledTime,
-        status: 'Pending',
+        status: 'Ready To Publish' as NotionStatus,
         retryCount: 0,
         threadId: tweet.isThread ? tweet.title : undefined
       }));
@@ -180,7 +180,7 @@ export class SchedulerService {
           id: tweet.id,
           content: tweet.content,
           scheduledTime: tweet.scheduledTime,
-          status: 'Pending',
+          status: 'Ready To Publish' as NotionStatus,
           retryCount: 0,
           threadId: tweet.isThread ? tweet.title : undefined
         };

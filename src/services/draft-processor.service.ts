@@ -54,7 +54,7 @@ Example format:
 5. Thought-provoking:
 [The actual tweet text here]
 
-Example from draft to variations:
+Example format of the variations:
 
 - Original Draft: I think that in the future, only one type of business will remain: those who adopt AI
 - Variations:
@@ -69,6 +69,7 @@ Example from draft to variations:
 
   private async generateVariations(draftTitle: string): Promise<string[]> {
     try {
+      console.log(`\n🎯 Generating variations for draft: "${draftTitle}"`);
       const content = await this.aiService.createPromptCompletion(
         'You are a professional social media writer that creates engaging tweets.',
         this.createPrompt(draftTitle),
@@ -78,35 +79,40 @@ Example from draft to variations:
         }
       );
       
-      // Split the content into variations and clean them up
-      const variations = content
-        .split('\n')
-        .reduce((acc: string[], line: string) => {
-          const trimmedLine = line.trim();
+      console.log('📝 Raw AI response:', content);
+      
+      // Split the content into lines and clean them up
+      const lines = content.split('\n').map(line => line.trim());
+      const variations: string[] = [];
+      
+      // Process each line
+      for (const line of lines) {
+        // Skip empty lines and headers
+        if (!line || 
+            line.startsWith('Example') || 
+            line.startsWith('For each') ||
+            line.includes('[') ||
+            line.includes(']')) {
+          continue;
+        }
+        
+        // Remove style labels and numbers
+        const cleanedLine = line
+          .replace(/^\d+\.\s*(Straightforward|Casual and conversational|Engaging with a question|Humorous or witty|Thought-provoking):\s*/i, '')
+          .trim();
           
-          // Skip empty lines, headers, and example format lines
-          if (!trimmedLine || 
-              /^\d+\./.test(trimmedLine) || // Numbered lines
-              trimmedLine.includes(':') || // Style headers
-              trimmedLine.includes('[') || // Example format
-              trimmedLine.includes(']') || // Example format
-              trimmedLine.includes('(and so on...)')) {
-            return acc;
-          }
-          
-          // Remove any remaining numbers at the start and clean up
-          const cleanedLine = trimmedLine
-            .replace(/^\d+\.\s*/, '') // Remove leading numbers
-            .replace(/^\s*\d+\s*/, '') // Remove standalone numbers
-            .trim();
-            
-          if (cleanedLine) {
-            acc.push(cleanedLine);
-          }
-          
-          return acc;
-        }, []);
-
+        if (cleanedLine && !cleanedLine.startsWith('-') && !cleanedLine.startsWith('Original Draft:')) {
+          variations.push(cleanedLine);
+        }
+      }
+      
+      console.log(`✅ Generated ${variations.length} variations:`);
+      variations.forEach((v, i) => console.log(`${i + 1}. ${v}`));
+      
+      if (variations.length === 0) {
+        throw new Error(`No valid variations were generated for draft: ${draftTitle}`);
+      }
+      
       return variations;
     } catch (error) {
       console.error('Failed to generate variations:', error);
@@ -116,25 +122,46 @@ Example from draft to variations:
 
   async processDraft(draft: DraftTweet): Promise<ProcessingResult> {
     try {
-      console.log(`Processing draft: ${draft.title}`);
+      console.log(`\n🔄 Processing draft: ${draft.title}`);
 
       // Generate variations
       const variations = await this.generateVariations(draft.title);
       
       if (!variations.length) {
-        throw new Error('No variations were generated');
+        console.error(`❌ No variations were generated for draft: ${draft.title}`);
+        await this.notionService.updateTweetStatus(draft.id, 'Failed to Post', undefined, 'No variations were generated');
+        return {
+          success: false,
+          message: 'Failed to generate variations',
+          error: 'No variations were generated'
+        };
       }
 
-      // Update Notion page with variations
-      await this.notionService.updateDraftWithVariations(draft.id, variations);
+      // Update Notion page with variations and status
+      await this.notionService.updateTweetVariations(draft.id, variations);
+      await this.notionService.updateTweetStatus(draft.id, 'Processed');
 
+      console.log(`✅ Successfully processed draft: ${draft.title}`);
       return {
         success: true,
         message: 'Successfully generated variations',
         variations
       };
     } catch (error) {
-      console.error(`Failed to process draft ${draft.id}:`, error);
+      console.error(`❌ Failed to process draft ${draft.id}:`, error);
+      
+      // Update status to Failed to Post with error message
+      try {
+        await this.notionService.updateTweetStatus(
+          draft.id,
+          'Failed to Post',
+          undefined,
+          error instanceof Error ? error.message : 'Unknown error'
+        );
+      } catch (updateError) {
+        console.error('Failed to update error status:', updateError);
+      }
+
       return {
         success: false,
         message: 'Failed to process draft',

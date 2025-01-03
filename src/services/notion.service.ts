@@ -1,7 +1,14 @@
+/**
+ * Notion Service
+ * 
+ * Handles interactions with the Notion API for database operations.
+ * 
+ */
+
 import { Client } from '@notionhq/client';
 import { PageObjectResponse } from '@notionhq/client/build/src/api-endpoints';
-import { NotionTweet, NotionConfig, NotionBlock, NotionInputConfig, NotionInputBlock } from '../types/notion.types';
-import { DraftTweet, TweetStatus } from '../types/draft-processor.types';
+import { NotionTweet, NotionConfig, NotionBlock, NotionStatus, NotionInputConfig, NotionInputBlock } from '../types/notion.types';
+import { DraftTweet } from '../types/draft-processor.types';
 
 export class NotionService {
   private client: Client;
@@ -78,7 +85,7 @@ export class NotionService {
         database_id: this.databaseId,
         filter: {
           property: 'Status',
-          select: {
+          status: {
             equals: 'Ready To Publish'
           }
         },
@@ -127,15 +134,13 @@ export class NotionService {
               content = threadContent;
             }
 
-            const tweet = {
+            const tweet: NotionTweet = {
               id: page.id,
               title,
               content,
               isThread,
               scheduledTime: scheduledTime ? new Date(scheduledTime) : now,
-              status: properties.Status.select?.name || 'Draft',
-              effort: properties.Effort?.select?.name,
-              engagement: properties.Engagement?.select?.name
+              status: properties.Status.status?.name || 'Draft',
             };
 
             console.log('✅ Processed tweet:', tweet);
@@ -154,7 +159,7 @@ export class NotionService {
     }
   }
 
-  async updateTweetStatus(pageId: string, status: NotionTweet['status'], url?: string, error?: string): Promise<void> {
+  async updateTweetStatus(pageId: string, status: NotionStatus, url?: string, error?: string): Promise<void> {
     const properties: any = {
       'Status': {
         status: {
@@ -274,19 +279,14 @@ export class NotionService {
       if (scheduledTimeProperty.type !== 'date') {
         throw new Error('Scheduled Time property must be a date type');
       }
+      
       if (publishedDateProperty.type !== 'date') {
         throw new Error('Published Date property must be a date type');
       }
 
-      console.log('✅ All database schema validations passed');
+      console.log('✅ Database schema validation completed successfully');
     } catch (error) {
       console.error('Failed to validate database schema:', error);
-      if (error instanceof Error) {
-        console.error('Error details:', {
-          message: error.message,
-          stack: error.stack
-        });
-      }
       throw error;
     }
   }
@@ -521,7 +521,7 @@ export class NotionService {
         database_id: this.databaseId,
         filter: {
           property: 'Status',
-          select: {
+          status: {
             equals: 'Draft'
           }
         }
@@ -538,7 +538,7 @@ export class NotionService {
             return {
               id: page.id,
               title: 'Untitled',
-              status: 'Draft' as TweetStatus
+              status: 'Draft' as NotionStatus
             };
           }
 
@@ -548,7 +548,7 @@ export class NotionService {
           return {
             id: page.id,
             title: title,
-            status: 'Draft' as TweetStatus
+            status: 'Draft' as NotionStatus
           };
         })
         .filter(draft => draft.title !== 'Untitled');
@@ -606,6 +606,51 @@ export class NotionService {
       });
     } catch (error) {
       console.error('Failed to update draft with variations:', error);
+      throw error;
+    }
+  }
+
+  async updateTweetVariations(pageId: string, variations: string[]): Promise<void> {
+    try {
+      console.log(`📝 Updating variations for page ${pageId}...`);
+      
+      // Format variations as blocks
+      const blocks = variations.map(variation => ({
+        object: 'block' as const,
+        type: 'paragraph' as const,
+        paragraph: {
+          rich_text: [{
+            type: 'text' as const,
+            text: {
+              content: variation
+            }
+          }]
+        }
+      }));
+
+      // First, add a heading for the variations
+      await this.client.blocks.children.append({
+        block_id: pageId,
+        children: [
+          {
+            object: 'block' as const,
+            type: 'heading_2' as const,
+            heading_2: {
+              rich_text: [{
+                type: 'text' as const,
+                text: {
+                  content: '🔄 Generated Variations'
+                }
+              }]
+            }
+          },
+          ...blocks
+        ]
+      });
+
+      console.log('✅ Variations updated successfully');
+    } catch (error) {
+      console.error('Failed to update variations:', error);
       throw error;
     }
   }

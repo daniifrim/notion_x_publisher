@@ -1,6 +1,5 @@
 import { AIModel } from '../config/ai.config';
-
-export type TweetStatus = 'Draft' | 'AI Processed' | 'Ready To Publish' | 'Published' | 'Failed to Post';
+import { NotionStatus } from './notion.types';
 
 export interface DraftProcessorConfig {
   model: AIModel;
@@ -11,7 +10,7 @@ export interface DraftProcessorConfig {
 export interface DraftTweet {
   id: string;
   title: string;
-  status: TweetStatus;
+  status: NotionStatus;
 }
 
 export interface ProcessingResult {
