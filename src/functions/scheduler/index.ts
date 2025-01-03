@@ -62,9 +62,11 @@ export const handler = async (event: any): Promise<any> => {
 
     const schedulerService = new SchedulerService(
       schedulerConfig,
-      twitterService,
-      notionService,
-      notificationService
+      {
+        twitterService,
+        notionService,
+        notificationService
+      }
     );
 
     // Process tweet queue

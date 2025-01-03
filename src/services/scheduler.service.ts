@@ -1,7 +1,7 @@
 import { TwitterService } from './twitter.service';
 import { NotionService } from './notion.service';
 import { NotificationService } from './notification.service';
-import { SchedulerConfig, ScheduledTweet, SchedulerResult } from '../types/scheduler.types';
+import { SchedulerConfig, SchedulerDependencies, ScheduledTweet, SchedulerResult } from '../types/scheduler.types';
 import { NotionTweet } from '../types/notion.types';
 
 export class SchedulerService {
@@ -12,14 +12,12 @@ export class SchedulerService {
 
   constructor(
     config: SchedulerConfig,
-    twitterService: TwitterService,
-    notionService: NotionService,
-    notificationService: NotificationService
+    dependencies: SchedulerDependencies
   ) {
     this.config = config;
-    this.twitterService = twitterService;
-    this.notionService = notionService;
-    this.notificationService = notificationService;
+    this.twitterService = dependencies.twitterService;
+    this.notionService = dependencies.notionService;
+    this.notificationService = dependencies.notificationService;
   }
 
   private async processSingleTweet(tweet: ScheduledTweet): Promise<boolean> {

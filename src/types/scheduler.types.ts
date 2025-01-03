@@ -1,7 +1,17 @@
+import { TwitterService } from '../services/twitter.service';
+import { NotionService } from '../services/notion.service';
+import { NotificationService } from '../services/notification.service';
+
 export interface SchedulerConfig {
   checkInterval: number;  // in minutes
   maxRetries: number;
-  retryDelay: number;    // in minutes
+  retryDelay: number;    // in milliseconds
+}
+
+export interface SchedulerDependencies {
+  twitterService: TwitterService;
+  notionService: NotionService;
+  notificationService: NotificationService;
 }
 
 export interface ScheduledTweet {
@@ -12,8 +22,8 @@ export interface ScheduledTweet {
   retryCount: number;
   lastAttempt?: Date;
   error?: string;
-  threadId?: string;    // If part of a thread
-  threadPosition?: number; // Position in thread if applicable
+  threadId?: string;
+  threadPosition?: number;
 }
 
 export interface TweetQueue {

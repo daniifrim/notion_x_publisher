@@ -1,4 +1,26 @@
 "use strict";
+/**
+ * Twitter Integration Debug Script
+ *
+ * This script helps diagnose Twitter API integration issues by testing various
+ * Twitter API endpoints and validating credentials.
+ *
+ * Features:
+ * 1. Validates Twitter API credentials
+ * 2. Tests tweet posting functionality
+ * 3. Checks API rate limits
+ * 4. Verifies app permissions
+ *
+ * Usage:
+ * - Run with: npm run debug:twitter
+ * - Requires .env file with Twitter API credentials
+ *
+ * Related Files:
+ * - services/twitter.service.ts: The main Twitter service being tested
+ * - scheduled.ts: The Lambda function that uses Twitter integration
+ *
+ * Note: This is a debugging tool, not used in production
+ */
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -65,3 +87,4 @@ async function debugTwitter() {
 }
 // Run debug
 debugTwitter();
+//# sourceMappingURL=debug-twitter.js.map

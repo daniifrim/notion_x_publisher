@@ -72,9 +72,11 @@ async function main() {
 
     const schedulerService = new SchedulerService(
       schedulerConfig,
-      twitterService,
-      notionService,
-      notificationService
+      {
+        twitterService,
+        notionService,
+        notificationService
+      }
     );
 
     console.log('\nProcessing tweet queue...');
