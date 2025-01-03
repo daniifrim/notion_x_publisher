@@ -1,21 +1,25 @@
 import { TwitterService } from './twitter.service';
 import { NotionService } from './notion.service';
+import { NotificationService } from './notification.service';
 import { SchedulerConfig, ScheduledTweet, SchedulerResult } from '../types/scheduler.types';
 import { NotionTweet } from '../types/notion.types';
 
 export class SchedulerService {
   private config: SchedulerConfig;
-  private twitterService: TwitterService; 
+  private twitterService: TwitterService;
   private notionService: NotionService;
+  private notificationService: NotificationService;
 
   constructor(
     config: SchedulerConfig,
     twitterService: TwitterService,
-    notionService: NotionService
+    notionService: NotionService,
+    notificationService: NotificationService
   ) {
     this.config = config;
     this.twitterService = twitterService;
     this.notionService = notionService;
+    this.notificationService = notificationService;
   }
 
   private async processSingleTweet(tweet: ScheduledTweet): Promise<boolean> {
@@ -24,9 +28,6 @@ export class SchedulerService {
       if (tweet.scheduledTime > new Date()) {
         return false; // Not time yet
       }
-
-      // Update status to Processing
-      await this.notionService.updateTweetStatus(tweet.id, 'Processing');
 
       // Handle thread vs single tweet
       let result;
@@ -42,7 +43,7 @@ export class SchedulerService {
           threadTweets.map(t => t.content)
         );
 
-        // Update all thread tweets
+        // Update all thread tweets and send notification
         for (const threadTweet of threadTweets) {
           await this.notionService.updateTweetStatus(
             threadTweet.id,
@@ -50,6 +51,15 @@ export class SchedulerService {
             result.threadUrl
           );
         }
+        await this.notificationService.notifyTweetPublished({
+          id: threadTweets[0].id,
+          title: threadTweets[0].title,
+          content: threadTweets[0].content,
+          status: 'Published',
+          url: result.threadUrl,
+          scheduledTime: threadTweets[0].scheduledTime,
+          isThread: true
+        });
       } else {
         // Post single tweet
         result = await this.twitterService.postTweet(tweet.content);
@@ -58,6 +68,14 @@ export class SchedulerService {
           'Published',
           result.url
         );
+        await this.notificationService.notifyTweetPublished({
+          id: tweet.id,
+          content: tweet.content,
+          status: 'Published',
+          url: result.url,
+          scheduledTime: tweet.scheduledTime,
+          isThread: false
+        });
       }
 
       return true;
@@ -76,6 +94,14 @@ export class SchedulerService {
           undefined,
           tweet.error
         );
+        await this.notificationService.notifyTweetError({
+          id: tweet.id,
+          content: tweet.content,
+          status: 'Failed to Post',
+          scheduledTime: tweet.scheduledTime,
+          isThread: !!tweet.threadId,
+          error: tweet.error
+        }, tweet.error);
       }
 
       return false;

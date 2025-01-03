@@ -157,7 +157,7 @@ export class NotionService {
   async updateTweetStatus(pageId: string, status: NotionTweet['status'], url?: string, error?: string): Promise<void> {
     const properties: any = {
       'Status': {
-        select: {
+        status: {
           name: status
         }
       }
@@ -230,22 +230,15 @@ export class NotionService {
         );
       }
 
-      // Validate Status property has correct options
+      // Validate Status property
       console.log('🔍 Validating Status property...');
       const statusProperty = database.properties['Status'] as any;
-      if (statusProperty.type !== 'select') {
-        throw new Error('Status property must be a select type');
+      if (statusProperty.type !== 'status') {
+        throw new Error('Status property must be a status type');
       }
 
-      // Validate Thread property is a checkbox
-      console.log('🔍 Validating Thread property...');
-      const threadProperty = database.properties['Thread'] as any;
-      if (threadProperty.type !== 'checkbox') {
-        throw new Error('Thread property must be a checkbox type');
-      }
-
-      const requiredStatuses = ['Draft', 'Ready To Publish', 'Published', 'Failed to Post'];
-      const availableStatuses = statusProperty.select.options.map(
+      const requiredStatuses = ['Draft', 'Processed', 'Ready To Publish', 'Published', 'Failed to Post'];
+      const availableStatuses = statusProperty.status.options.map(
         (opt: any) => opt.name
       );
 
