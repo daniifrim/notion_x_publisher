@@ -90,6 +90,65 @@ OPENAI_API_KEY=your_openai_api_key
   - Scheduler: Rate(5 minutes)
   - Scraper: Rate(1 hour)
   - AI Processor: Rate(30 minutes)
+- Handler Configuration:
+  - Main function: `index.handler`
+  - Scraper: `index.scraperHandler`
+  - Scheduler: `index.schedulerHandler`
+
+## Deployment
+
+### GitHub Actions Deployment
+The project uses GitHub Actions for automatic deployment to AWS Lambda:
+
+1. Required Secrets:
+   ```
+   AWS_ACCESS_KEY_ID=your_aws_access_key
+   AWS_SECRET_ACCESS_KEY=your_aws_secret_key
+   AWS_REGION=your_aws_region (e.g., us-east-2)
+   ```
+
+2. IAM Policy Requirements:
+   - Lambda function update permissions
+   - CloudWatch Logs permissions
+   - Minimum policy example:
+     ```json
+     {
+       "Version": "2012-10-17",
+       "Statement": [
+         {
+           "Effect": "Allow",
+           "Action": [
+             "lambda:UpdateFunctionCode",
+             "lambda:UpdateFunctionConfiguration",
+             "lambda:GetFunction",
+             "lambda:GetFunctionConfiguration"
+           ],
+           "Resource": "arn:aws:lambda:region:account-id:function:notion-x-publisher"
+         },
+         {
+           "Effect": "Allow",
+           "Action": [
+             "logs:CreateLogGroup",
+             "logs:CreateLogStream",
+             "logs:PutLogEvents"
+           ],
+           "Resource": "arn:aws:logs:region:account-id:*"
+         }
+       ]
+     }
+     ```
+
+3. Deployment Process:
+   - Triggered on push to main branch
+   - Builds TypeScript code
+   - Installs production dependencies
+   - Creates deployment package
+   - Updates Lambda function
+
+4. Monitoring Deployments:
+   - Check GitHub Actions tab for deployment status
+   - Review CloudWatch logs for function execution
+   - Verify Lambda function configuration
 
 ## Features
 
