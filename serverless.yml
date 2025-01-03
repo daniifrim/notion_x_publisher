@@ -16,6 +16,7 @@ provider:
     APIFY_API_TOKEN: ${env:APIFY_API_TOKEN}
     APIFY_TASK_ID: ${env:APIFY_TASK_ID}
     OPENAI_API_KEY: ${env:OPENAI_API_KEY}
+    SLACK_WEBHOOK_URL: ${env:SLACK_WEBHOOK_URL}
 
 plugins:
   - serverless-plugin-typescript
