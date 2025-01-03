@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import { AI_CONFIG, AIRequestConfig, AIRole } from '../config/ai.config';
+import { AnalysisPrompt, AnalysisResult, ProcessedTweet } from '../types/ai.types';
 
 export class AIService {
   private static instance: AIService;
@@ -54,5 +55,29 @@ export class AIService {
     ];
 
     return this.createCompletion(messages, config);
+  }
+
+  async analyzeTweets(input: AnalysisPrompt): Promise<AnalysisResult> {
+    try {
+      const systemPrompt = `You are an AI assistant analyzing tweets for a user with the following profile: ${input.profile}. 
+Their interests include: ${input.interests.join(', ')}. 
+Analyze the provided tweets and create a markdown summary focusing on engagement patterns, content themes, and actionable insights.`;
+
+      const userPrompt = `Please analyze these tweets:
+${input.tweets.map((t: ProcessedTweet) => `- ${t.text} (Likes: ${t.likeCount}, Retweets: ${t.retweetCount}, URL: ${t.url})`).join('\n')}`;
+
+      const analysis = await this.createPromptCompletion(systemPrompt, userPrompt);
+
+      return {
+        markdown: analysis,
+        jsonOutput: {
+          summary: analysis,
+          tweets: input.tweets
+        }
+      };
+    } catch (error) {
+      console.error('Failed to analyze tweets:', error);
+      throw error;
+    }
   }
 } 

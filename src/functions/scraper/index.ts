@@ -25,7 +25,7 @@ const notionConfig: NotionConfig = {
 
 // Initialize services
 const scraperService = new ScraperService(scraperConfig);
-const aiService = new AIService(aiConfig);
+const aiService = AIService.getInstance();
 const notionService = new NotionService(notionConfig);
 
 export const handler = async (event: any): Promise<any> => {
