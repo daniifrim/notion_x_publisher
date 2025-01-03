@@ -97,7 +97,7 @@ export class NotionService {
           .map(async page => {
             const properties = page.properties as any;
             const isThread = properties.Thread?.checkbox || false;
-            const title = properties.Name.title[0]?.plain_text || '';
+            const title = properties.Idea.title[0]?.plain_text || '';
             
             let content = title;
             if (isThread) {
@@ -176,7 +176,7 @@ export class NotionService {
       const requiredProperties = [
         'Status',
         'Scheduled Time',
-        'Name',
+        'Idea',
         'URL',
         'Published Date',
         'Effort',
