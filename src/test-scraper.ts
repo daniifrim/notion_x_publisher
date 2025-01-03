@@ -33,7 +33,7 @@ async function main() {
     console.log('Initializing services...');
     const notionService = new NotionService(notionConfig);
     const scraperService = new ScraperService(scraperConfig);
-    const aiService = new AIService(aiConfig);
+    const aiService = AIService.getInstance();
 
     // Get configuration from Notion
     console.log('Fetching configuration from Notion...');
