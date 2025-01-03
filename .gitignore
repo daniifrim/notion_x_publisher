@@ -12,6 +12,8 @@ yarn-error.log*
 # Build output
 dist/
 build/
+*.js
+*.js.map
 
 # IDE and editor files
 .idea/
@@ -19,4 +21,23 @@ build/
 *.swp
 *.swo
 .DS_Store
+
+# Logs
+logs/
+*.log
+
+# Test coverage
+coverage/
+
+# Keep TypeScript source files
+!*.ts
+!*.tsx
+
+# Keep configuration files
+!*.config.js
+!jest.config.js
+
+# Android app
+android-app/
+
 
