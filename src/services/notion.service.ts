@@ -14,10 +14,12 @@ export class NotionService {
 
   private async getPageBlocks(pageId: string): Promise<NotionBlock[]> {
     try {
+      console.log(`🔍 Fetching blocks for page ${pageId}...`);
       const response = await this.client.blocks.children.list({
         block_id: pageId
       });
       
+      console.log(`📦 Found ${response.results.length} blocks`);
       return response.results as NotionBlock[];
     } catch (error) {
       console.error('Failed to fetch page blocks:', error);
@@ -30,11 +32,15 @@ export class NotionService {
     const tweets: string[] = [];
     let currentTweet: string[] = [];
 
+    console.log('🧵 Extracting thread content from blocks...');
+
     for (const block of blocks) {
       if (block.type === 'divider') {
         // When we hit a divider, join the current tweet content and add it to tweets
         if (currentTweet.length > 0) {
-          tweets.push(currentTweet.join('\n').trim());
+          const tweetContent = currentTweet.join('\n').trim();
+          console.log('📝 Adding tweet:', tweetContent);
+          tweets.push(tweetContent);
           currentTweet = [];
         }
       } else if (block.type === 'paragraph') {
@@ -47,6 +53,7 @@ export class NotionService {
             .trim();
           
           if (text.length > 0) {
+            console.log('📄 Adding paragraph:', text);
             currentTweet.push(text);
           }
         }
@@ -55,42 +62,45 @@ export class NotionService {
 
     // Don't forget the last tweet if it exists
     if (currentTweet.length > 0) {
-      tweets.push(currentTweet.join('\n').trim());
+      const tweetContent = currentTweet.join('\n').trim();
+      console.log('📝 Adding final tweet:', tweetContent);
+      tweets.push(tweetContent);
     }
 
     // Filter out any empty tweets
-    return tweets.filter(tweet => tweet.length > 0);
+    const filteredTweets = tweets.filter(tweet => tweet.length > 0);
+    console.log(`✅ Extracted ${filteredTweets.length} tweets from thread`);
+    return filteredTweets;
   }
 
   async getReadyTweets(): Promise<NotionTweet[]> {
     try {
       const now = new Date();
-      const response = await this.client.databases.query({
+      console.log('🔍 Fetching tweets with status "Ready To Publish"...');
+      
+      // Query only by status first
+      const query = {
         database_id: this.databaseId,
         filter: {
-          and: [
-            {
-              property: 'Status',
-              select: {
-                equals: 'Ready To Publish'
-              }
-            },
-            {
-              property: 'Scheduled Time',
-              date: {
-                on_or_before: now.toISOString()
-              }
-            }
-          ]
+          property: 'Status',
+          select: {
+            equals: 'Ready To Publish'
+          }
         },
         sorts: [
           {
             property: 'Scheduled Time',
-            direction: 'ascending'
+            direction: 'ascending' as const
           }
         ]
-      });
+      };
 
+      console.log('📤 Query:', JSON.stringify(query, null, 2));
+      const response = await this.client.databases.query(query);
+      console.log('📥 Raw response:', JSON.stringify(response, null, 2));
+
+      console.log(`📝 Found ${response.results.length} pages with Ready To Publish status`);
+      
       const tweets = await Promise.all(
         response.results
           .filter((page): page is PageObjectResponse => 'properties' in page)
@@ -98,28 +108,51 @@ export class NotionService {
             const properties = page.properties as any;
             const isThread = properties.Thread?.checkbox || false;
             const title = properties.Idea.title[0]?.plain_text || '';
+            const scheduledTime = properties['Scheduled Time']?.date?.start;
+            
+            console.log(`\n📄 Processing page "${title}"`);
+            console.log(`🧵 Is thread: ${isThread}`);
+            console.log(`📅 Scheduled time: ${scheduledTime || 'Not set'}`);
+            
+            // Skip if has scheduled time and it's in the future
+            if (scheduledTime) {
+              const scheduleDate = new Date(scheduledTime);
+              if (scheduleDate > now) {
+                console.log(`⏳ Tweet scheduled for future: ${scheduleDate.toLocaleString()}`);
+                return null;
+              }
+            }
             
             let content = title;
             if (isThread) {
+              console.log('🔍 Getting thread content...');
               // For threads, we'll get the content from the page blocks
               const threadContent = await this.extractThreadContent(page.id);
+              console.log('📝 Thread tweets:', threadContent);
               content = threadContent.join('\n');
             }
 
-            return {
+            const tweet = {
               id: page.id,
               title,
               content,
               isThread,
-              scheduledTime: new Date(properties['Scheduled Time'].date?.start || now.toISOString()),
+              scheduledTime: scheduledTime ? new Date(scheduledTime) : now,
               status: properties.Status.select?.name || 'Draft',
               effort: properties.Effort?.select?.name,
               engagement: properties.Engagement?.select?.name
             };
+
+            console.log('✅ Processed tweet:', tweet);
+            return tweet;
           })
       );
 
-      return tweets;
+      // Filter out null values (tweets scheduled for future)
+      const readyTweets = tweets.filter((tweet): tweet is NonNullable<typeof tweet> => tweet !== null);
+      console.log(`📊 Found ${readyTweets.length} tweets ready to publish now`);
+
+      return readyTweets;
     } catch (error) {
       console.error('Failed to fetch ready tweets from Notion:', error);
       throw error;

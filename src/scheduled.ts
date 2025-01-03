@@ -1,18 +1,34 @@
 import * as dotenv from 'dotenv';
 import { NotionService } from './services/notion.service';
 import { TwitterService } from './services/twitter.service';
-import { SchedulerService } from './services/scheduler.service';
 import { NotionConfig } from './types/notion.types';
 import { TwitterConfig } from './types/twitter.types';
-import { SchedulerConfig } from './types/scheduler.types';
 
 // Load environment variables
 dotenv.config();
 
 export const handler = async (event: any): Promise<any> => {
   try {
-    console.log('🕒 Starting scheduled tweet processing...');
+    console.log('🕒 Starting scheduled Lambda execution...');
+    console.log('⏰ Current time:', new Date().toISOString());
 
+    // Validate environment variables
+    const requiredEnvVars = [
+      'NOTION_API_KEY',
+      'NOTION_DATABASE_ID',
+      'TWITTER_API_KEY',
+      'TWITTER_API_SECRET',
+      'TWITTER_ACCESS_TOKEN',
+      'TWITTER_ACCESS_TOKEN_SECRET'
+    ];
+
+    const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
+    if (missingEnvVars.length > 0) {
+      throw new Error(`Missing required environment variables: ${missingEnvVars.join(', ')}`);
+    }
+
+    // Initialize services
+    console.log('📦 Initializing services...');
     const notionConfig: NotionConfig = {
       databaseId: process.env.NOTION_DATABASE_ID!,
       apiKey: process.env.NOTION_API_KEY!
@@ -25,49 +41,89 @@ export const handler = async (event: any): Promise<any> => {
       accessTokenSecret: process.env.TWITTER_ACCESS_TOKEN_SECRET!
     };
 
-    const schedulerConfig: SchedulerConfig = {
-      checkInterval: 5,  // Check every 5 minutes
-      maxRetries: 3,     // Maximum 3 retries
-      retryDelay: 15     // Wait 15 minutes between retries
-    };
-
     const notionService = new NotionService(notionConfig);
     const twitterService = new TwitterService(twitterConfig);
-    const schedulerService = new SchedulerService(
-      schedulerConfig,
-      twitterService,
-      notionService
-    );
 
-    // Process any tweets that are ready and due
-    const result = await schedulerService.processQueue();
-    console.log('Queue processing result:', result);
+    // Initialize Twitter service
+    console.log('🐦 Initializing Twitter service...');
+    await twitterService.initialize();
+    console.log('✅ Twitter service initialized');
 
-    // Process retries if there were errors
-    if (result.errors.length > 0) {
-      console.log('Processing retry queue...');
-      const retryResult = await schedulerService.retryFailedTweets();
-      console.log('Retry processing result:', retryResult);
+    // Get ready tweets
+    console.log('\n📝 Checking for ready tweets...');
+    const readyTweets = await notionService.getReadyTweets();
+    console.log(`Found ${readyTweets.length} tweets ready to publish`);
 
-      return {
-        statusCode: 200,
-        body: JSON.stringify({
-          message: 'Completed processing with retries',
-          queueResult: result,
-          retryResult
-        })
-      };
+    // Process each tweet
+    const results = [];
+    for (const tweet of readyTweets) {
+      try {
+        if (tweet.isThread) {
+          console.log(`\n🧵 Processing thread: "${tweet.title}"`);
+          
+          // Split content into individual tweets
+          const tweets = tweet.content.split('\n').filter(t => t.trim().length > 0);
+          
+          console.log(`Thread contains ${tweets.length} tweets:`);
+          tweets.forEach((content, index) => {
+            console.log(`\n[${index + 1}/${tweets.length}] ${content}`);
+          });
+
+          const threadResult = await twitterService.postThread(tweets);
+          console.log('✅ Thread published successfully');
+          console.log(`🔗 Thread URL: ${threadResult.threadUrl}`);
+
+          await notionService.updateTweetStatus(tweet.id, 'Published', threadResult.threadUrl);
+          console.log('✅ Notion status updated');
+          
+          results.push({
+            id: tweet.id,
+            success: true,
+            url: threadResult.threadUrl
+          });
+        } else {
+          console.log(`\n🔄 Processing single tweet: "${tweet.content}"`);
+          console.log(`Scheduled for: ${tweet.scheduledTime.toLocaleString()}`);
+
+          const publishedTweet = await twitterService.postTweet(tweet.content);
+          console.log('✅ Tweet published successfully');
+          console.log(`🔗 Tweet URL: ${publishedTweet.url}`);
+
+          await notionService.updateTweetStatus(tweet.id, 'Published', publishedTweet.url);
+          console.log('✅ Notion status updated');
+          
+          results.push({
+            id: tweet.id,
+            success: true,
+            url: publishedTweet.url
+          });
+        }
+      } catch (error) {
+        console.error(`❌ Failed to process tweet ${tweet.id}:`, error);
+        await notionService.updateTweetStatus(
+          tweet.id,
+          'Failed to Post',
+          undefined,
+          error instanceof Error ? error.message : 'Unknown error'
+        );
+        results.push({
+          id: tweet.id,
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
+      }
     }
 
     return {
       statusCode: 200,
       body: JSON.stringify({
         message: 'Successfully processed scheduled tweets',
-        result
+        processed: readyTweets.length,
+        results
       })
     };
   } catch (error) {
-    console.error('❌ Scheduler execution failed:', error);
+    console.error('❌ Lambda execution failed:', error);
     return {
       statusCode: 500,
       body: JSON.stringify({
