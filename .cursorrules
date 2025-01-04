@@ -1,0 +1,83 @@
+You are an expert in TypeScript, AWS Lambda, Notion API, Twitter API, and serverless architecture.
+
+## Key Principles
+- Write clear, concise, and maintainable TypeScript code.
+- Prioritize error handling, logging, and retries for critical operations.
+- Follow serverless architecture best practices for AWS Lambda deployments.
+- Use consistent naming conventions across services, handlers, and utilities.
+- Implement automated tests for key functionalities.
+
+## Project Structure
+- Organize code into logical modules: services, functions, types, and utilities.
+- Ensure handler functions are lightweight and delegate logic to services.
+- Follow DRY (Don’t Repeat Yourself) and SRP (Single Responsibility Principle).
+
+### Naming Conventions
+- camelCase for variables and functions (`isReady`, `hasError`)
+- PascalCase for classes and types (`NotionService`, `TweetScheduler`)
+- kebab-case for filenames (`notion-service.ts`, `ai-processor.ts`)
+- UPPERCASE for environment variables (`NOTION_API_KEY`, `TWITTER_API_KEY`)
+
+## Notion Integration
+- Use a dedicated `notion.service.ts` for all Notion API interactions.
+- Validate and sanitize inputs/outputs from the Notion database.
+- Map Notion properties (`Name`, `Scheduled Time`, `Status`) to strongly typed interfaces.
+- Handle rate limits gracefully with exponential backoff.
+
+## Twitter Integration
+- Centralize API interactions in `twitter.service.ts`.
+- Implement retry mechanisms with configurable maximum attempts.
+- Use error statuses (`Failed to Post`) and log actionable messages.
+- Support both single tweets and thread-based tweets with correct sequencing.
+
+## Scheduler Logic
+- Use AWS Lambda with a 5-minute cron schedule.
+- Validate time-bound logic before processing scheduled tweets.
+- Ensure timeouts and retries are properly managed.
+
+## AI Processing
+- Use a dedicated `ai.service.ts` for tweet analysis and sentiment scoring.
+- Leverage OpenAI APIs for natural language processing tasks.
+- Cache analysis results to minimize redundant API calls.
+
+## Error Handling
+- Use descriptive error messages and detailed logs for failures.
+- Implement retries with exponential backoff for transient issues.
+- Use clear status updates (`Failed to Post`, `Processing`) in Notion.
+
+## Environment Variables
+- Store all secrets and configuration in `.env` and AWS Secrets Manager.
+- Avoid hardcoding sensitive keys in the source code.
+- Validate all required environment variables during runtime initialization.
+
+## Testing and Validation
+- Write unit tests for critical services (`notion.service.ts`, `twitter.service.ts`).
+- Use mocks for API dependencies to ensure test isolation.
+- Validate JSON schema for Notion and Twitter API payloads.
+
+## Deployment and CI/CD
+- Use GitHub Actions for automated deployment pipelines.
+- Validate code with TypeScript compiler and linting tools before deployment.
+- Monitor Lambda logs using AWS CloudWatch.
+- Include rollback strategies for failed deployments.
+
+## Logging and Monitoring
+- Use structured logging for all key actions (e.g., tweet posted, error encountered).
+- Set up AWS CloudWatch alerts for Lambda failures.
+- Enable log retention policies to manage storage costs.
+
+## Security Best Practices
+- Rotate API keys periodically.
+- Apply the principle of least privilege for AWS IAM roles.
+- Ensure all sensitive data is encrypted at rest and in transit.
+
+## Documentation
+- Maintain updated `README.md` for deployment, environment setup, and API usage.
+- Document key environment variables and their usage.
+- Include troubleshooting guides for common failure scenarios.
+
+## Best Practices
+1. Avoid global state in Lambda functions.
+2. Minimize dependencies in Lambda layers for faster cold starts.
+3. Always validate external API responses before processing.
+4. Handle edge cases explicitly in scheduling and retry logic.

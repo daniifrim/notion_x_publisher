@@ -21,102 +21,83 @@
  * Note: This is a testing script, not used in production
  */
 
-import dotenv from 'dotenv';
+import { config } from 'dotenv';
 import { ScraperService } from '../services/scraper.service';
-import { AIService } from '../services/ai.service';
 import { NotionService } from '../services/notion.service';
-import { ScraperConfig } from '../types/scraper.types';
-import { AIConfig } from '../types/ai.types';
-import { NotionConfig } from '../types/notion.types';
+import { AIService } from '../services/ai.service';
 
 // Load environment variables
-dotenv.config();
+config();
 
 async function main() {
   try {
-    // Initialize configurations
-    const notionConfig: NotionConfig = {
-      apiKey: process.env.NOTION_API_KEY || '',
-      databaseId: process.env.NOTION_DATABASE_ID || ''
-    };
+    console.log('🚀 Starting scraper test...');
 
-    const scraperConfig: ScraperConfig = {
-      apifyToken: process.env.APIFY_API_TOKEN || '',
-      taskId: process.env.APIFY_TASK_ID || ''
-    };
-
-    const aiConfig: AIConfig = {
-      apiKey: process.env.OPENAI_API_KEY || '',
-      model: 'gpt-4o',
-      maxTokens: 1000,
-      temperature: 0.5
-    };
+    // Debug environment variables
+    console.log('\n🔑 Checking environment variables...');
+    console.log('APIFY_API_TOKEN:', process.env.APIFY_API_TOKEN ? '✅ Present' : '❌ Missing');
+    console.log('APIFY_TASK_ID:', process.env.APIFY_TASK_ID ? '✅ Present' : '❌ Missing');
 
     // Initialize services
-    console.log('Initializing services...');
-    const notionService = new NotionService(notionConfig);
-    const scraperService = new ScraperService(scraperConfig);
+    const scraperService = new ScraperService({
+      apifyToken: process.env.APIFY_API_TOKEN || '',
+      taskId: process.env.APIFY_TASK_ID || ''
+    });
+
+    const notionService = new NotionService({
+      apiKey: process.env.NOTION_API_KEY || '',
+      databaseId: process.env.NOTION_DATABASE_ID || ''
+    });
+
     const aiService = AIService.getInstance();
 
     // Get configuration from Notion
-    console.log('Fetching configuration from Notion...');
+    console.log('\n📋 Getting configuration from Notion...');
     const inputConfig = await notionService.getInputConfig();
-    console.log('Configuration loaded:', {
-      profileLength: inputConfig.profile.length,
-      interestsCount: inputConfig.interests.length,
-      accountsCount: inputConfig.accountsToFollow.length
-    });
+    console.log('✅ Configuration loaded:', JSON.stringify(inputConfig, null, 2));
 
-    // Process tweets
-    console.log('\nStarting tweet scraping...');
+    // Test input generation with sample data
+    const searchTerms = inputConfig.interests;
+    console.log(`\n📋 Search terms to process: ${searchTerms.length}`);
+    console.log(searchTerms);
+
+    // Run the scraper (only with search terms)
+    console.log('\n🔄 Running scraper...');
+    const result = await scraperService.scrapeTweets(searchTerms);
     
-    // Use actual configuration from Notion
-    const scrapedData = await scraperService.scrapeTweets(
-      inputConfig.interests,
-      inputConfig.accountsToFollow
-    );
-
-    // Display the exact JSON used for Apify (before making the request)
-    console.log('\nApify Input JSON for manual testing:');
-    const apifyInput = scraperService.getTestInput(inputConfig.interests, inputConfig.accountsToFollow);
-    console.log(JSON.stringify(apifyInput, null, 2));
-
-    console.log(`Scraped ${scrapedData.totalTweets} tweets`);
-
-    console.log('\nAnalyzing tweets...');
-    const analysis = await aiService.analyzeTweets({
-      profile: inputConfig.profile,
-      interests: inputConfig.interests,
-      tweets: scrapedData.tweets.map(t => ({
-        text: t.text,
-        url: t.url,
-        username: t.username,
-        likeCount: t.likeCount,
-        retweetCount: t.retweetCount
-      }))
-    });
-
-    console.log('\nAnalysis Results:');
-    console.log(analysis.markdown);
-
-    // Create analysis entry in Notion
-    console.log('\nCreating analysis entry in Notion...');
-    try {
-      await notionService.createAnalysisEntry('', analysis.markdown, []);
-      console.log('✅ Analysis entry created in Notion');
-    } catch (error) {
-      console.error('Failed to create analysis entry:', error);
-      if (error instanceof Error) {
-        console.error('Error details:', {
-          message: error.message,
-          stack: error.stack
-        });
-      }
+    console.log('\n📊 Scraping Results:');
+    console.log(`Total tweets: ${result.totalTweets}`);
+    console.log(`Timestamp: ${result.timestamp}`);
+    
+    // Process some tweets with AI
+    if (result.tweets.length > 0) {
+      console.log('\n🤖 Testing AI analysis on first tweet...');
+      const sampleTweet = result.tweets[0];
+      
+      const analysis = await aiService.analyzeTweets({
+        profile: inputConfig.profile,
+        interests: inputConfig.interests,
+        tweets: [
+          {
+            text: sampleTweet.text,
+            url: sampleTweet.url,
+            username: sampleTweet.username,
+            likeCount: sampleTweet.likeCount,
+            retweetCount: sampleTweet.retweetCount
+          }
+        ]
+      });
+      
+      console.log('\n📝 AI Analysis Result:');
+      console.log(JSON.stringify(analysis, null, 2));
     }
 
+    console.log('\n✅ Test completed successfully');
   } catch (error) {
-    console.error('Error in test script:', error);
+    console.error('❌ Error in test script:', error);
+    process.exit(1);
   }
 }
 
-main().catch(console.error); 
+// Run the test
+main(); 

@@ -70,7 +70,7 @@ export const handler = async (event: any): Promise<any> => {
     const profile = tweet.title || 'Twitter user';
 
     // Scrape tweets based on configuration
-    const scrapedData = await scraperService.scrapeTweets(interests, []);
+    const scrapedData = await scraperService.scrapeTweets(interests);
 
     // Analyze the scraped tweets
     const analysis = await aiService.analyzeTweets({

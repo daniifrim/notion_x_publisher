@@ -7,15 +7,15 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "start:local": "ts-node src/local.ts",
-    "test:scraper": "ts-node src/test-scraper.ts",
-    "test:scheduler": "ts-node src/test-scheduler.ts",
-    "test:extraction": "ts-node src/test-tweet-extraction.ts",
-    "test:notifications": "ts-node src/test-notifications.ts",
+    "test:scraper": "ts-node src/tests/test-scraper.ts",
+    "test:scheduler": "ts-node src/tests/test-scheduler.ts",
+    "test:extraction": "ts-node src/tests/test-tweet-extraction.ts",
+    "test:notifications": "ts-node src/tests/test-notifications.ts",
+    "test:draft-processor": "ts-node src/tests/test-draft-processor.ts",
     "test": "echo \"Error: no test specified\" && exit 1",
     "deploy": "serverless deploy",
-    "offline": "serverless offline",
-    "test:draft-processor": "ts-node src/test-draft-processor.ts"
-  },
+    "offline": "serverless offline"
+  }, 
   "devDependencies": {
     "@types/node": "^22.10.2",
     "serverless": "^3.38.0",
