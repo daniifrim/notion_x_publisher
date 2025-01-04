@@ -1,10 +1,19 @@
 import { TwitterApi } from 'twitter-api-v2';
-import { TwitterConfig, Tweet } from '../types/twitter.types';
+import { TwitterConfig, Tweet, TweetContent, MediaType, MediaUpload } from '../types/twitter.types';
 
 export class TwitterService {
   private client: TwitterApi;
   private config: TwitterConfig;
   private username: string = '';
+
+  // Media upload constraints
+  private readonly MAX_IMAGE_SIZE = 15 * 1024 * 1024; // 15MB
+  private readonly MAX_GIF_SIZE = 15 * 1024 * 1024;   // 15MB
+  private readonly MAX_VIDEO_SIZE = 512 * 1024 * 1024; // 512MB
+  private readonly MAX_VIDEO_DURATION = 140; // 140 seconds (2min 20s)
+  private readonly SUPPORTED_IMAGE_FORMATS = ['image/jpeg', 'image/png', 'image/webp'];
+  private readonly SUPPORTED_GIF_FORMAT = 'image/gif';
+  private readonly SUPPORTED_VIDEO_FORMATS = ['video/mp4', 'video/quicktime'];
 
   constructor(config: TwitterConfig) {
     this.config = config;
@@ -32,98 +41,163 @@ export class TwitterService {
     return error.message;
   }
 
-  async debugApiAccess(): Promise<void> {
+  private async validateMediaType(url: string, type: MediaType): Promise<{ valid: boolean; error?: string }> {
     try {
-      console.log('🔍 Testing Twitter API access...');
-      
-      // Test 1: Get user info
-      console.log('Test 1: Getting user info...');
-      const user = await this.client.v2.me();
-      console.log('✅ Successfully got user info:', user.data);
+      const response = await fetch(url);
+      const contentType = response.headers.get('content-type');
+      const contentLength = Number(response.headers.get('content-length'));
 
-      // Test 2: Check app settings
-      console.log('\nTest 2: Checking app settings...');
-      const appSettings = await this.client.v2.get('users/me');
-      console.log('✅ Successfully got app settings:', appSettings);
+      switch (type) {
+        case 'image':
+          if (!this.SUPPORTED_IMAGE_FORMATS.includes(contentType || '')) {
+            return { valid: false, error: `Unsupported image format: ${contentType}. Supported formats: JPEG, PNG, WEBP` };
+          }
+          if (contentLength > this.MAX_IMAGE_SIZE) {
+            return { valid: false, error: `Image too large: ${Math.round(contentLength / 1024 / 1024)}MB. Maximum size: 15MB` };
+          }
+          break;
 
-      // Test 3: Check write permissions
-      console.log('\nTest 3: Checking write permissions...');
-      const writePermissions = await this.client.v2.get('users/me', {
-        'tweet.fields': 'created_at'
-      });
-      console.log('✅ Successfully checked write permissions:', writePermissions);
+        case 'gif':
+          if (contentType !== this.SUPPORTED_GIF_FORMAT) {
+            return { valid: false, error: 'Only GIF format is supported for animated GIFs' };
+          }
+          if (contentLength > this.MAX_GIF_SIZE) {
+            return { valid: false, error: `GIF too large: ${Math.round(contentLength / 1024 / 1024)}MB. Maximum size: 15MB` };
+          }
+          break;
 
-      // Test 4: Check rate limits
-      console.log('\nTest 4: Checking rate limits...');
-      const rateLimits = await this.getRateLimits();
-      console.log('ℹ️ Current rate limits:', rateLimits);
-
-      // Test 5: Attempt to post a test tweet
-      console.log('\nTest 5: Attempting to post a test tweet...');
-      if (rateLimits.remaining > 0) {
-        const testTweet = await this.client.v2.tweet('Test tweet from NotionXPublisher [' + new Date().toISOString() + ']');
-        console.log('✅ Successfully posted test tweet:', testTweet);
-      } else {
-        console.log('⚠️ Skipping test tweet - rate limit reached');
+        case 'video':
+          if (!this.SUPPORTED_VIDEO_FORMATS.includes(contentType || '')) {
+            return { valid: false, error: `Unsupported video format: ${contentType}. Supported formats: MP4, MOV` };
+          }
+          if (contentLength > this.MAX_VIDEO_SIZE) {
+            return { valid: false, error: `Video too large: ${Math.round(contentLength / 1024 / 1024)}MB. Maximum size: 512MB` };
+          }
+          break;
       }
 
-      console.log('\n✅ All debug tests passed!');
-    } catch (error: any) {
-      console.error('❌ Debug test failed:', {
-        error: this.formatRateLimitError(error),
-        code: error.code,
-        data: error.data,
-        stack: error.stack
-      });
-      throw error;
-    }
-  }
-
-  async getRateLimits(): Promise<{ limit: number; remaining: number; resetAt: Date }> {
-    try {
-      const response = await this.client.v2.get('users/me');
-      const headers = response._headers;
-      
-      return {
-        limit: Number(headers['x-user-limit-24hour-limit'] || 25),
-        remaining: Number(headers['x-user-limit-24hour-remaining'] || 0),
-        resetAt: new Date(Number(headers['x-user-limit-24hour-reset'] || 0) * 1000)
-      };
+      return { valid: true };
     } catch (error) {
-      console.error('Failed to get rate limits:', error);
-      throw error;
+      if (error instanceof Error) {
+        return { valid: false, error: `Failed to validate media: ${error.message}` };
+      }
+      return { valid: false, error: 'Failed to validate media: Unknown error' };
     }
   }
 
-  async validateCredentials(): Promise<void> {
+  private async uploadMedia(mediaUpload: MediaUpload): Promise<string> {
     try {
-      // First run debug tests
-      await this.debugApiAccess();
+      console.log(`📤 Uploading ${mediaUpload.type}: ${mediaUpload.url}`);
       
-      // Verify credentials and app permissions
-      const currentUser = await this.client.v2.me();
-      
-      // Check if we have write permissions by attempting to get app settings
-      const appPermissions = await this.client.v2.get('users/me');
-      if (!appPermissions || appPermissions.errors) {
-        throw new Error('Twitter API credentials do not have write permissions. Please check your app settings in the Twitter Developer Portal.');
+      // Validate media
+      const validation = await this.validateMediaType(mediaUpload.url, mediaUpload.type);
+      if (!validation.valid) {
+        throw new Error(validation.error);
       }
-    } catch (error: any) {
-      if (error.code === 403) {
-        throw new Error(
-          'Twitter API authentication failed. Please ensure your app has OAuth 1.0a enabled and "Read and Write" permissions.'
-        );
+
+      // Fetch media
+      const response = await fetch(mediaUpload.url);
+      const buffer = await response.arrayBuffer();
+      const mimeType = response.headers.get('content-type') || '';
+
+      // Handle different media types
+      let mediaId: string;
+      if (mediaUpload.type === 'video') {
+        // Use regular upload for videos (Twitter API v2 doesn't support chunked upload)
+        mediaId = await this.client.v1.uploadMedia(Buffer.from(buffer), {
+          mimeType,
+          type: 'video/mp4'
+        });
+      } else {
+        // Use regular upload for images and GIFs
+        mediaId = await this.client.v1.uploadMedia(Buffer.from(buffer), {
+          mimeType,
+          type: mediaUpload.type === 'gif' ? 'animated_gif' : 'image'
+        });
       }
-      throw error;
+
+      console.log(`✅ Successfully uploaded ${mediaUpload.type}`);
+      return mediaId;
+    } catch (error) {
+      if (error instanceof Error) {
+        console.error(`Failed to upload ${mediaUpload.type}:`, error);
+        throw error;
+      }
+      throw new Error(`Failed to upload ${mediaUpload.type}: Unknown error`);
     }
   }
 
-  async postTweet(content: string): Promise<{ id: string; text: string; url: string }> {
+  private validateMediaCombination(media: MediaUpload[]): { valid: boolean; error?: string } {
+    // Check for mixing of media types
+    const types = new Set(media.map(m => m.type));
+    
+    if (types.has('video') && types.size > 1) {
+      return { valid: false, error: 'Videos cannot be combined with other media types' };
+    }
+    
+    if (types.has('gif') && types.size > 1) {
+      return { valid: false, error: 'GIFs cannot be combined with other media types' };
+    }
+
+    // Check media count constraints
+    if (types.has('image') && media.filter(m => m.type === 'image').length > 4) {
+      return { valid: false, error: 'Maximum of 4 images allowed per tweet' };
+    }
+    
+    if (types.has('gif') && media.filter(m => m.type === 'gif').length > 1) {
+      return { valid: false, error: 'Only 1 GIF allowed per tweet' };
+    }
+    
+    if (types.has('video') && media.filter(m => m.type === 'video').length > 1) {
+      return { valid: false, error: 'Only 1 video allowed per tweet' };
+    }
+
+    return { valid: true };
+  }
+
+  private async uploadMediaArray(media: MediaUpload[]): Promise<string[]> {
+    // Validate media combination
+    const validation = this.validateMediaCombination(media);
+    if (!validation.valid) {
+      throw new Error(validation.error);
+    }
+
+    // Upload each media item
+    const mediaIds: string[] = [];
+    for (const item of media) {
+      const mediaId = await this.uploadMedia(item);
+      mediaIds.push(mediaId);
+    }
+
+    return mediaIds;
+  }
+
+  private convertToMediaIdsTuple(mediaIds: string[]): [string] | [string, string] | [string, string, string] | [string, string, string, string] | undefined {
+    if (mediaIds.length === 0) return undefined;
+    if (mediaIds.length === 1) return [mediaIds[0]];
+    if (mediaIds.length === 2) return [mediaIds[0], mediaIds[1]];
+    if (mediaIds.length === 3) return [mediaIds[0], mediaIds[1], mediaIds[2]];
+    if (mediaIds.length === 4) return [mediaIds[0], mediaIds[1], mediaIds[2], mediaIds[3]];
+    return undefined;
+  }
+
+  async postTweet(content: string, media?: MediaUpload[]): Promise<{ id: string; text: string; url: string }> {
     try {
       if (!this.username) {
         await this.initialize();
       }
-      const tweet = await this.client.v2.tweet(content);
+
+      let mediaIds: string[] = [];
+      if (media && media.length > 0) {
+        mediaIds = await this.uploadMediaArray(media);
+      }
+
+      const mediaIdsTuple = this.convertToMediaIdsTuple(mediaIds);
+
+      const tweet = await this.client.v2.tweet(content, {
+        media: mediaIdsTuple ? { media_ids: mediaIdsTuple } : undefined
+      });
+
       return {
         id: tweet.data.id,
         text: tweet.data.text,
@@ -134,11 +208,11 @@ export class TwitterService {
       if (error instanceof Error) {
         throw new Error(`Twitter API Error: ${error.message}`);
       }
-      throw error;
+      throw new Error('Twitter API Error: Unknown error');
     }
   }
 
-  async postThread(tweets: string[]): Promise<{ threadUrl: string; tweetIds: string[] }> {
+  async postThread(tweets: TweetContent[]): Promise<{ threadUrl: string; tweetIds: string[] }> {
     try {
       if (!this.username) {
         await this.initialize();
@@ -152,10 +226,22 @@ export class TwitterService {
       let replyToId: string | undefined;
 
       // Post each tweet in the thread
-      for (const tweetContent of tweets) {
+      for (const tweet of tweets) {
+        let mediaIds: string[] = [];
+        if (tweet.media && tweet.media.length > 0) {
+          mediaIds = await this.uploadMediaArray(tweet.media);
+        }
+
+        const mediaIdsTuple = this.convertToMediaIdsTuple(mediaIds);
+
         const tweetData = replyToId
-          ? await this.client.v2.tweet(tweetContent, { reply: { in_reply_to_tweet_id: replyToId } })
-          : await this.client.v2.tweet(tweetContent);
+          ? await this.client.v2.tweet(tweet.content, { 
+              reply: { in_reply_to_tweet_id: replyToId },
+              media: mediaIdsTuple ? { media_ids: mediaIdsTuple } : undefined
+            })
+          : await this.client.v2.tweet(tweet.content, {
+              media: mediaIdsTuple ? { media_ids: mediaIdsTuple } : undefined
+            });
 
         tweetIds.push(tweetData.data.id);
         replyToId = tweetData.data.id;
@@ -170,7 +256,7 @@ export class TwitterService {
       if (error instanceof Error) {
         throw new Error(`Twitter Thread Error: ${error.message}`);
       }
-      throw error;
+      throw new Error('Twitter Thread Error: Unknown error');
     }
   }
 

@@ -3,6 +3,7 @@ import { NotionService } from './notion.service';
 import { NotificationService } from './notification.service';
 import { SchedulerConfig, SchedulerDependencies, ScheduledTweet, SchedulerResult } from '../types/scheduler.types';
 import { NotionTweet, NotionStatus } from '../types/notion.types';
+import { MediaUpload } from '../types/twitter.types';
 
 export class SchedulerService {
   private config: SchedulerConfig;
@@ -36,10 +37,14 @@ export class SchedulerService {
           .filter(t => t.isThread && t.title === tweet.threadId)
           .sort((a, b) => (a.content > b.content ? 1 : -1));
 
+        // Map tweets to include content and images while preserving other properties
+        const mappedThreadTweets = threadTweets.map(t => ({
+          content: t.content,
+          images: t.images
+        }));
+
         // Post thread
-        result = await this.twitterService.postThread(
-          threadTweets.map(t => t.content)
-        );
+        result = await this.twitterService.postThread(mappedThreadTweets);
 
         // Update all thread tweets and send notification
         for (const threadTweet of threadTweets) {
@@ -49,31 +54,37 @@ export class SchedulerService {
             result.threadUrl
           );
         }
-        await this.notificationService.notifyTweetPublished({
-          id: threadTweets[0].id,
-          title: threadTweets[0].title,
-          content: threadTweets[0].content,
-          status: 'Published',
-          url: result.threadUrl,
-          scheduledTime: threadTweets[0].scheduledTime,
-          isThread: true
-        });
+
+        // Convert to NotionTweet for notification
+        const notificationTweet = {
+          ...threadTweets[0],
+          status: 'Published' as const,
+          url: result.threadUrl
+        };
+
+        await this.notificationService.notifyTweetPublished(notificationTweet);
       } else {
         // Post single tweet
-        result = await this.twitterService.postTweet(tweet.content);
+        const media = tweet.images?.map(url => ({ url, type: 'image' as const }));
+        result = await this.twitterService.postTweet(tweet.content, media);
         await this.notionService.updateTweetStatus(
           tweet.id,
           'Published',
           result.url
         );
-        await this.notificationService.notifyTweetPublished({
+
+        // Convert to NotionTweet for notification
+        const notificationTweet = {
           id: tweet.id,
           content: tweet.content,
-          status: 'Published',
+          status: 'Published' as const,
           url: result.url,
           scheduledTime: tweet.scheduledTime,
-          isThread: false
-        });
+          isThread: false,
+          images: tweet.images
+        };
+
+        await this.notificationService.notifyTweetPublished(notificationTweet);
       }
 
       return true;
@@ -92,14 +103,19 @@ export class SchedulerService {
           undefined,
           tweet.error
         );
-        await this.notificationService.notifyTweetError({
+
+        // Convert to NotionTweet for error notification
+        const notificationTweet = {
           id: tweet.id,
           content: tweet.content,
-          status: 'Failed to Post',
+          status: 'Failed to Post' as const,
           scheduledTime: tweet.scheduledTime,
           isThread: !!tweet.threadId,
-          error: tweet.error
-        }, tweet.error);
+          error: tweet.error,
+          images: tweet.images
+        };
+
+        await this.notificationService.notifyTweetError(notificationTweet, tweet.error);
       }
 
       return false;
@@ -123,9 +139,9 @@ export class SchedulerService {
         id: tweet.id,
         content: tweet.content,
         scheduledTime: tweet.scheduledTime,
-        status: 'Ready To Publish' as NotionStatus,
         retryCount: 0,
-        threadId: tweet.isThread ? tweet.title : undefined
+        threadId: tweet.isThread ? tweet.title : undefined,
+        images: tweet.images
       }));
 
       // Process each tweet
@@ -180,9 +196,9 @@ export class SchedulerService {
           id: tweet.id,
           content: tweet.content,
           scheduledTime: tweet.scheduledTime,
-          status: 'Ready To Publish' as NotionStatus,
           retryCount: 0,
-          threadId: tweet.isThread ? tweet.title : undefined
+          threadId: tweet.isThread ? tweet.title : undefined,
+          images: tweet.images
         };
 
         try {

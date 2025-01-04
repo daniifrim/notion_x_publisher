@@ -11,7 +11,7 @@
  * 4. Manual tweet processing
  * 
  * Usage:
- * - Run with: npm run local
+ * - Run with: npm run test:local
  * - Requires .env file with all necessary credentials
  * 
  * Related Files:
@@ -25,7 +25,7 @@ import * as dotenv from 'dotenv';
 import { NotionService } from './services/notion.service';
 import { TwitterService } from './services/twitter.service';
 import { NotionConfig } from './types/notion.types';
-import { TwitterConfig } from './types/twitter.types';
+import { TwitterConfig, TweetContent, MediaUpload } from './types/twitter.types';
 
 // Load environment variables
 dotenv.config();
@@ -87,16 +87,24 @@ async function main() {
       if (tweet.isThread) {
         console.log(`\n🧵 Processing thread: "${tweet.title}"`);
         
-        // Split content into individual tweets
-        const tweets = tweet.content.split('\n').filter(t => t.trim().length > 0);
+        // Split content into individual tweets and convert images to media
+        const threadTweets: TweetContent[] = tweet.content.split('\n')
+          .filter(t => t.trim().length > 0)
+          .map(content => ({
+            content,
+            media: tweet.images?.map(url => ({ url, type: 'image' as const }))
+          }));
         
-        console.log(`Thread contains ${tweets.length} tweets:`);
-        tweets.forEach((content, index) => {
-          console.log(`\n[${index + 1}/${tweets.length}] ${content}`);
+        console.log(`Thread contains ${threadTweets.length} tweets:`);
+        threadTweets.forEach((t, index) => {
+          console.log(`\n[${index + 1}/${threadTweets.length}] ${t.content}`);
+          if (t.media?.length) {
+            console.log(`🖼️ Media: ${t.media.length}`);
+          }
         });
 
         try {
-          const threadResult = await twitterService.postThread(tweets);
+          const threadResult = await twitterService.postThread(threadTweets);
           console.log('✅ Thread published successfully');
           console.log(`🔗 Thread URL: ${threadResult.threadUrl}`);
 
@@ -114,9 +122,15 @@ async function main() {
       } else {
         console.log(`\n🔄 Processing single tweet: "${tweet.content}"`);
         console.log(`Scheduled for: ${tweet.scheduledTime.toLocaleString()}`);
+        
+        // Convert images to media
+        const media = tweet.images?.map(url => ({ url, type: 'image' as const }));
+        if (media?.length) {
+          console.log(`🖼️ Media: ${media.length}`);
+        }
 
         try {
-          const publishedTweet = await twitterService.postTweet(tweet.content);
+          const publishedTweet = await twitterService.postTweet(tweet.content, media);
           console.log('✅ Tweet published successfully');
           console.log(`🔗 Tweet URL: ${publishedTweet.url}`);
 

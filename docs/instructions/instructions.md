@@ -13,6 +13,7 @@ This project automates the publication of tweets from a Notion database to X (fo
 7. Scrape and analyze tweets using AI
 8. Support for Twitter threads with proper ordering
 9. Automatic retry mechanism for failed tweets
+10. Support for multiple images in tweets (up to 4)
 
 ## Technical Architecture
 
@@ -178,6 +179,57 @@ The project uses GitHub Actions for automatic deployment to AWS Lambda:
 - Source linking and attribution
 - Engagement metrics analysis
 - Customizable analysis prompts
+
+### Tweet Media Support
+- Support for multiple media types:
+  - Images: Up to 4 images per tweet
+  - GIFs: Single animated GIF per tweet
+  - Videos: Single video per tweet
+- Media Type Constraints:
+  - Images:
+    - Formats: JPG, PNG, WEBP
+    - Maximum size: 5MB (mobile) / 15MB (web)
+    - Layout Handling:
+      - Two Images: Side by side (7:8 aspect ratio each)
+      - Three Images: One large (7:8) + two stacked (4:7 each)
+      - Four Images: 2x2 grid (2:1 aspect ratio each)
+  - GIFs:
+    - Format: GIF only
+    - Maximum size: 15MB
+    - One GIF per tweet
+    - Cannot be combined with other media
+  - Videos:
+    - Formats: MP4, MOV
+    - Maximum size: 512MB
+    - Maximum duration: 2 minutes and 20 seconds
+    - One video per tweet
+    - Cannot be combined with other media
+- Media Validation:
+  - Format validation
+  - Size validation
+  - Count validation
+  - Combination rules enforcement
+- Media Storage:
+  - Media files are stored as blocks in Notion
+  - Automatic media type detection
+  - Support for both single tweets and threads
+  - Proper error handling for invalid media
+
+### Media Handling Best Practices
+1. File Size Optimization:
+   - Compress images before uploading to Notion
+   - Use appropriate video codecs (H.264 for MP4)
+   - Optimize GIFs for web usage
+
+2. Media Combinations:
+   - Use multiple images for visual storytelling
+   - Keep GIFs and videos as standalone media
+   - Consider thread structure when using media
+
+3. Error Handling:
+   - Validation before upload
+   - Clear error messages for media issues
+   - Automatic retry for transient failures
 
 ## Error Handling
 1. Rate Limit Exceeded:

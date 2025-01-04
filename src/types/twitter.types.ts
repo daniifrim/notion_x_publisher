@@ -1,8 +1,20 @@
+export type MediaType = 'image' | 'gif' | 'video';
+
+export interface MediaUpload {
+  url: string;
+  type: MediaType;
+}
+
 export interface TwitterConfig {
   apiKey: string;
   apiKeySecret: string;
   accessToken: string;
   accessTokenSecret: string;
+}
+
+export interface TweetContent {
+  content: string;
+  media?: MediaUpload[];
 }
 
 export interface Tweet {
