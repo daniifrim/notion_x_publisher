@@ -35,8 +35,9 @@ package:
 
 functions:
   # Webhook handler
-  webhookHandler:
+  draftProcessorWebhook:
     handler: src/webhook.handler
+    description: 'Handles webhook requests from Notion button to process draft tweets'
     events:
       - httpApi:
           path: /webhook
