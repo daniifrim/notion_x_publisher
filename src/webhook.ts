@@ -24,13 +24,25 @@ import { WebhookService } from './services/webhook.service';
 import { WebhookPayload } from './types/webhook.types';
 import { NotionConfig } from './types/notion.types';
 
+// Initialize only the services needed for webhook handling
 const notionConfig: NotionConfig = {
   apiKey: process.env.NOTION_API_KEY!,
   databaseId: process.env.NOTION_DATABASE_ID!
 };
 
-const notionService = new NotionService(notionConfig);
-const webhookService = new WebhookService(notionService, process.env.WEBHOOK_SECRET!);
+// Only initialize services when they're needed
+let notionService: NotionService | null = null;
+let webhookService: WebhookService | null = null;
+
+const initializeServices = () => {
+  if (!notionService) {
+    notionService = new NotionService(notionConfig);
+  }
+  if (!webhookService) {
+    webhookService = new WebhookService(notionService, process.env.WEBHOOK_SECRET!);
+  }
+  return { notionService, webhookService };
+};
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
@@ -40,6 +52,9 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       path: event.path,
       httpMethod: event.httpMethod
     });
+
+    // Initialize services
+    const { webhookService } = initializeServices();
 
     // Verify webhook secret
     const webhookSecret = event.headers['x-webhook-secret'];
