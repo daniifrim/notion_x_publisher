@@ -34,16 +34,24 @@ const webhookService = new WebhookService(notionService, process.env.WEBHOOK_SEC
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
-    // Validate webhook secret
-    const secret = event.headers['x-webhook-secret'];
-    const secretValidation = webhookService.validateWebhookSecret(secret);
-    
-    if (!secretValidation.isValid) {
+    console.log('Webhook received:', {
+      headers: event.headers,
+      body: event.body,
+      requestContext: event.requestContext
+    });
+
+    // Verify webhook secret
+    const webhookSecret = event.headers['x-webhook-secret'];
+    console.log('Webhook secret check:', {
+      received: webhookSecret,
+      expected: process.env.WEBHOOK_SECRET
+    });
+
+    if (webhookSecret !== process.env.WEBHOOK_SECRET) {
+      console.log('Webhook secret mismatch');
       return {
         statusCode: 401,
-        body: JSON.stringify({
-          message: secretValidation.error || 'Unauthorized'
-        })
+        body: JSON.stringify({ message: 'Unauthorized' })
       };
     }
 
