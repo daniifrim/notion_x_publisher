@@ -1,6 +1,6 @@
 import { Client } from '@notionhq/client';
 
-export type NotionStatus = 'Draft' | 'Processed' | 'Ready To Publish' | 'Published' | 'Failed to Post';
+export type NotionStatus = 'Draft' | 'AI Generated' | 'Processed' | 'Ready To Publish' | 'Published' | 'Failed to Post';
 
 export interface NotionConfig {
   apiKey: string;

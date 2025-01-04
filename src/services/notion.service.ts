@@ -560,13 +560,13 @@ export class NotionService {
 
   async updateDraftWithVariations(pageId: string, variations: string[]): Promise<void> {
     try {
-      // First update the page status to 'AI Processed'
+      // First update the page status to 'Processed'
       await this.client.pages.update({
         page_id: pageId,
         properties: {
           'Status': {
-            select: {
-              name: 'AI Processed'
+            status: {
+              name: 'Processed'
             }
           }
         }
@@ -651,6 +651,57 @@ export class NotionService {
       console.log('✅ Variations updated successfully');
     } catch (error) {
       console.error('Failed to update variations:', error);
+      throw error;
+    }
+  }
+
+  async getDraftTweetsNotInThread(): Promise<NotionTweet[]> {
+    try {
+      console.log('🔍 Fetching draft tweets not in thread...');
+      
+      const response = await this.client.databases.query({
+        database_id: this.databaseId,
+        filter: {
+          and: [
+            {
+              property: 'Status',
+              status: {
+                equals: 'Draft'
+              }
+            },
+            {
+              property: 'Thread',
+              checkbox: {
+                equals: false
+              }
+            }
+          ]
+        }
+      });
+
+      const tweets = await Promise.all(
+        response.results
+          .filter((page): page is PageObjectResponse => 'properties' in page)
+          .map(async page => {
+            const properties = page.properties as any;
+            const title = properties.Idea.title[0]?.plain_text || '';
+            const content = await this.extractTweetContent(page);
+            
+            return {
+              id: page.id,
+              title,
+              content,
+              status: 'Draft' as NotionStatus,
+              scheduledTime: new Date(),
+              isThread: false
+            };
+          })
+      );
+
+      console.log(`📊 Found ${tweets.length} draft tweets not in thread`);
+      return tweets;
+    } catch (error) {
+      console.error('Failed to fetch draft tweets not in thread:', error);
       throw error;
     }
   }

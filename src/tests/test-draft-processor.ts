@@ -1,31 +1,14 @@
 /**
- * Tweet Draft Processor Testing Script
+ * Draft Processor Test Script
  * 
- * This script tests the AI-powered draft processing functionality locally.
- * It processes draft tweets from Notion, generates variations using AI,
- * and updates the Notion database with the results.
- * 
- * Features Tested:
- * 1. Draft Tweet Retrieval: Gets drafts from Notion
- * 2. AI Processing: Uses OpenAI to generate tweet variations
- * 3. Notion Updates: Saves generated variations back to Notion
- * 4. Error Handling: Tests error cases and recovery
- * 
- * AI Configuration:
- * - Model: Uses the model specified in AI_CONFIG
- * - Max Tokens: Configured in AI_CONFIG
- * - Temperature: Controls creativity level
+ * This script tests the workflow of:
+ * 1. Finding draft tweets that aren't threads
+ * 2. Processing them with variations
+ * 3. Updating their status to "Processed"
  * 
  * Usage:
- * - Run with: npm run test:drafts
- * - Requires .env file with OPENAI_API_KEY and NOTION credentials
- * 
- * Related Files:
- * - services/draft-processor.service.ts: Core draft processing logic
- * - services/ai.service.ts: OpenAI integration
- * - config/ai.config.ts: AI model configuration
- * 
- * Note: This is a testing script, not used in production
+ * - Run with: npm run test:draft-processor
+ * - Requires .env file with NOTION_API_KEY and NOTION_DATABASE_ID
  */
 
 import { config } from 'dotenv';
@@ -39,6 +22,8 @@ config();
 
 async function main() {
   try {
+    console.log('🚀 Starting draft processor test...');
+
     // Initialize services
     const notionService = new NotionService({
       apiKey: process.env.NOTION_API_KEY || '',
@@ -53,32 +38,37 @@ async function main() {
 
     const draftProcessor = new DraftProcessorService(draftProcessorConfig, notionService);
 
-    console.log('Starting draft processing...');
+    // Get draft tweets that aren't threads
+    console.log('\n📋 Fetching draft tweets not in thread...');
+    const drafts = await notionService.getDraftTweetsNotInThread();
+    console.log(`Found ${drafts.length} draft tweets to process`);
 
-    // Process all drafts
-    const results = await draftProcessor.processAllDrafts();
-
-    // Log results
-    console.log('Processing completed. Results:');
-    results.forEach((result, index) => {
-      console.log(`\nDraft ${index + 1}:`);
-      console.log('Success:', result.success);
-      console.log('Message:', result.message);
-      if (result.error) {
-        console.error('Error:', result.error);
+    // Process each draft
+    for (const draft of drafts) {
+      console.log(`\n📝 Processing draft: "${draft.title}"`);
+      const result = await draftProcessor.processDraft({
+        id: draft.id,
+        title: draft.content,
+        status: 'Draft'
+      });
+      
+      if (result.success) {
+        console.log('✅ Successfully processed draft');
+        if (result.variations) {
+          console.log('Generated variations:');
+          result.variations.forEach((v, i) => console.log(`${i + 1}. ${v}`));
+        }
+      } else {
+        console.error('❌ Failed to process draft:', result.error);
       }
-      if (result.variations) {
-        console.log('\nVariations:');
-        result.variations.forEach((variation, i) => {
-          console.log(`${i + 1}. ${variation}`);
-        });
-      }
-    });
+    }
 
+    console.log('\n✨ Test completed successfully');
   } catch (error) {
-    console.error('Failed to process drafts:', error);
+    console.error('❌ Error in test script:', error);
     process.exit(1);
   }
 }
 
+// Run the test
 main(); 
