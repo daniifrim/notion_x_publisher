@@ -18,6 +18,7 @@
 import { NotionService } from './notion.service';
 import { AIService } from './ai.service';
 import { DraftProcessorConfig, DraftTweet, ProcessingResult } from '../types/draft-processor.types';
+import { NOTION_SCHEMA } from '../constants/notion.constants';
 
 export class DraftProcessorService {
   private aiService: AIService;
@@ -53,8 +54,6 @@ For each variation:
 - Format with the number and style name, then the tweet text
 
 Example format:
-0. Original Draft:
-[The corrected original tweet text here]
 
 1. Straightforward:
 [The actual tweet text here]
@@ -137,6 +136,32 @@ Example format of the variations:
     }
   }
 
+  private async correctGrammar(text: string): Promise<string> {
+    try {
+      console.log(`\n✍️ Correcting grammar for: "${text}"`);
+      const prompt = `You are a professional editor. Correct any grammar, spelling, or vocabulary issues in this text. Keep the same meaning and tone, just fix technical issues:
+
+Original text: "${text}"
+
+Provide ONLY the corrected text with no explanations or additional formatting.`;
+
+      const corrected = await this.aiService.createPromptCompletion(
+        'You are a professional editor that corrects grammar and vocabulary.',
+        prompt,
+        {
+          maxTokens: this.config.maxTokens,
+          temperature: 0.3 // Lower temperature for more consistent corrections
+        }
+      );
+      
+      console.log('✅ Corrected text:', corrected);
+      return corrected.trim();
+    } catch (error) {
+      console.error('Failed to correct grammar:', error);
+      throw error;
+    }
+  }
+
   /**
    * Process a single draft page to generate variations
    * @param page The Notion page to process
@@ -144,12 +169,59 @@ Example format of the variations:
    */
   async processDraft(page: any): Promise<ProcessingResult> {
     try {
-      console.log('🔄 Processing draft:', page.properties?.Name?.title?.[0]?.plain_text);
-      const variations = await this.generateVariations(page.properties?.Name?.title?.[0]?.plain_text || '');
+      console.log('\n🔍 Processing page:', {
+        id: page.id,
+        hasProperties: 'properties' in page,
+        propertyKeys: page.properties ? Object.keys(page.properties) : 'No properties'
+      });
+
+      if (!page.properties) {
+        console.warn('⚠️ Page has no properties, fetching fresh data');
+        const freshPage = await this.notionService.getPage(page.id);
+        if (!freshPage) {
+          return {
+            success: false,
+            message: 'Failed to fetch page data',
+            variations: [],
+            error: 'Page not found'
+          };
+        }
+        page = freshPage;
+      }
+
+      const titleProperty = page.properties[NOTION_SCHEMA.PROPERTIES.TITLE];
+      console.log('📝 Title property:', JSON.stringify(titleProperty, null, 2));
+
+      const originalText = titleProperty?.title?.[0]?.plain_text || '';
+      console.log('📌 Original text:', originalText);
+
+      if (!originalText) {
+        console.warn('⚠️ No text found in title property');
+        return {
+          success: false,
+          message: 'No draft text found in page title',
+          variations: [],
+          error: 'Missing draft text'
+        };
+      }
+
+      // First, correct grammar and update the title
+      const correctedText = await this.correctGrammar(originalText);
+      await this.notionService.updatePageTitle(page.id, correctedText);
+      console.log('✅ Updated page title with corrected text');
+
+      // Then generate variations
+      const variations = await this.generateVariations(correctedText);
       await this.notionService.updateTweetVariations(page.id, variations);
+      console.log('✅ Added variations to page content');
+
+      // Update status to Processed
+      await this.notionService.updateTweetStatus(page.id, NOTION_SCHEMA.STATUS_VALUES.PROCESSED);
+      console.log('✅ Updated status to Processed');
+
       return {
         success: true,
-        message: 'Successfully generated variations',
+        message: 'Successfully corrected text and generated variations',
         variations
       };
     } catch (error) {

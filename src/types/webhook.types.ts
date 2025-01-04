@@ -1,10 +1,36 @@
 import { NotionStatus } from './notion.types';
 
 export interface WebhookPayload {
-  event_type: 'databaseButtonClick';
+  source: {
+    type: string;
+    automation_id: string;
+    action_id: string;
+    event_id: string;
+    attempt: number;
+  };
   data: {
-    pageId: string;
-    buttonId?: string;
+    object: string;
+    id: string;
+    created_time: string;
+    last_edited_time: string;
+    created_by: {
+      object: string;
+      id: string;
+    };
+    last_edited_by: {
+      object: string;
+      id: string;
+    };
+    parent: {
+      type: string;
+      database_id: string;
+    };
+    properties: {
+      [key: string]: any;
+    };
+    url: string;
+    public_url: string | null;
+    request_id: string;
   };
 }
 

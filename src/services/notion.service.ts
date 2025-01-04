@@ -9,6 +9,7 @@ import { Client } from '@notionhq/client';
 import { PageObjectResponse } from '@notionhq/client/build/src/api-endpoints';
 import { NotionTweet, NotionConfig, NotionBlock, NotionStatus, NotionInputConfig, NotionInputBlock } from '../types/notion.types';
 import { DraftTweet } from '../types/draft-processor.types';
+import { NOTION_SCHEMA } from '../constants/notion.constants';
 
 export class NotionService {
   private client: Client;
@@ -704,13 +705,13 @@ export class NotionService {
         filter: {
           and: [
             {
-              property: 'Status',
+              property: NOTION_SCHEMA.PROPERTIES.STATUS,
               status: {
-                equals: 'Draft'
+                equals: NOTION_SCHEMA.STATUS_VALUES.DRAFT
               }
             },
             {
-              property: 'Thread',
+              property: NOTION_SCHEMA.PROPERTIES.THREAD,
               checkbox: {
                 equals: false
               }
@@ -719,19 +720,29 @@ export class NotionService {
         }
       });
 
+
+
       const tweets = await Promise.all(
         response.results
           .filter((page): page is PageObjectResponse => 'properties' in page)
           .map(async page => {
             const properties = page.properties as any;
-            const title = properties.Idea.title[0]?.plain_text || '';
+            console.log(`\n🔍 Processing page ${page.id}`);
+            console.log('📦 Properties:', JSON.stringify(properties, null, 2));
+            
+            const titleProperty = properties[NOTION_SCHEMA.PROPERTIES.TITLE];
+            console.log('📝 Title property:', JSON.stringify(titleProperty, null, 2));
+            
+            const title = titleProperty?.title?.[0]?.plain_text || '';
+            console.log('📌 Extracted title:', title);
+            
             const { content, imageUrls } = await this.extractTweetContent(page);
             
             return {
               id: page.id,
               title,
               content,
-              status: 'Draft' as NotionStatus,
+              status: NOTION_SCHEMA.STATUS_VALUES.DRAFT as NotionStatus,
               scheduledTime: new Date(),
               isThread: false,
               images: imageUrls
@@ -770,9 +781,9 @@ export class NotionService {
   }
 
   private extractStatus(page: any): NotionStatus {
-    const statusProperty = page.properties?.Status;
+    const statusProperty = page.properties?.[NOTION_SCHEMA.PROPERTIES.STATUS];
     if (!statusProperty?.select?.name) {
-      return 'Draft';
+      return NOTION_SCHEMA.STATUS_VALUES.DRAFT;
     }
     return statusProperty.select.name as NotionStatus;
   }
@@ -789,10 +800,10 @@ export class NotionService {
       }
 
       const properties = response.properties as Record<string, any>;
-      const titleProperty = properties.Idea;
+      const titleProperty = properties[NOTION_SCHEMA.PROPERTIES.TITLE];
       
       if (!titleProperty || !Array.isArray(titleProperty.title)) {
-        console.warn(`Page ${pageId} has invalid Idea property`);
+        console.warn(`Page ${pageId} has invalid ${NOTION_SCHEMA.PROPERTIES.TITLE} property`);
         return null;
       }
 
@@ -802,7 +813,7 @@ export class NotionService {
       return {
         id: pageId,
         title,
-        status: 'Draft' as NotionStatus
+        status: NOTION_SCHEMA.STATUS_VALUES.DRAFT as NotionStatus
       };
     } catch (error) {
       console.error('Failed to get draft by ID:', error);
@@ -815,13 +826,46 @@ export class NotionService {
    * @param pageId The ID of the page to retrieve
    * @returns The page object or null if not found
    */
-  async getPage(pageId: string) {
+  async getPage(pageId: string): Promise<PageObjectResponse | null> {
     try {
       const response = await this.client.pages.retrieve({ page_id: pageId });
-      return response;
+      if (!('properties' in response)) {
+        console.warn('Retrieved page has no properties');
+        return null;
+      }
+      return response as PageObjectResponse;
     } catch (error) {
       console.error('Error getting page:', error);
       return null;
+    }
+  }
+
+  /**
+   * Updates a page's title in Notion
+   * @param pageId The ID of the page to update
+   * @param title The new title text
+   */
+  async updatePageTitle(pageId: string, title: string): Promise<void> {
+    try {
+      console.log(`📝 Updating title for page ${pageId}`);
+      await this.client.pages.update({
+        page_id: pageId,
+        properties: {
+          [NOTION_SCHEMA.PROPERTIES.TITLE]: {
+            title: [
+              {
+                text: {
+                  content: title
+                }
+              }
+            ]
+          }
+        }
+      });
+      console.log('✅ Title updated successfully');
+    } catch (error) {
+      console.error('Failed to update page title:', error);
+      throw error;
     }
   }
 } 

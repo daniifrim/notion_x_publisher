@@ -1,128 +1,89 @@
+import { WebhookPayload, WebhookValidationResult, WebhookProcessingResult } from '../types/webhook.types';
 import { NotionService } from './notion.service';
 import { DraftProcessorService } from './draft-processor.service';
-import { WebhookPayload, WebhookValidationResult, WebhookProcessingResult } from '../types/webhook.types';
 import { AI_CONFIG } from '../config/ai.config';
 
 export class WebhookService {
-  private notionService: NotionService;
-  private draftProcessor: DraftProcessorService;
-  private webhookSecret: string;
+  constructor(
+    private readonly notionService: NotionService,
+    private readonly draftProcessor: DraftProcessorService
+  ) {}
 
-  constructor(notionService: NotionService, webhookSecret: string) {
-    this.notionService = notionService;
-    this.webhookSecret = webhookSecret;
-    
-    // Initialize draft processor with default AI config
-    this.draftProcessor = new DraftProcessorService({
-      model: AI_CONFIG.model,
-      maxTokens: AI_CONFIG.defaultMaxTokens,
-      temperature: AI_CONFIG.defaultTemperature
-    }, notionService);
-  }
-
-  validateWebhookSecret(secret?: string): WebhookValidationResult {
-    if (!secret) {
-      return {
-        isValid: false,
-        error: 'Missing webhook secret'
-      };
-    }
-
-    if (secret !== this.webhookSecret) {
-      return {
-        isValid: false,
-        error: 'Invalid webhook secret'
-      };
-    }
-
-    return { isValid: true };
-  }
-
-  validatePayload(payload: unknown): WebhookValidationResult {
-    if (!payload || typeof payload !== 'object') {
-      return {
-        isValid: false,
-        error: 'Invalid payload format'
-      };
-    }
-
-    const webhookPayload = payload as WebhookPayload;
-
-    if (webhookPayload.event_type !== 'databaseButtonClick') {
-      return {
-        isValid: false,
-        error: 'Unsupported event type'
-      };
-    }
-
-    if (!webhookPayload.data?.pageId) {
-      return {
-        isValid: false,
-        error: 'Missing page ID'
-      };
-    }
-
-    return { isValid: true };
-  }
-
-  async processWebhook(payload: WebhookPayload): Promise<WebhookProcessingResult> {
+  /**
+   * Validates the webhook payload and secret
+   * @param payload The webhook payload
+   * @param secret The webhook secret
+   * @returns Validation result
+   */
+  validateWebhook(payload: WebhookPayload, secret: string): WebhookValidationResult {
     try {
-      const { pageId } = payload.data;
-      
-      // Get the page from Notion
-      const page = await this.notionService.getDraftById(pageId);
-      
-      if (!page) {
-        throw new Error('Page not found');
-      }
-      
-      // Only process if the page is in Draft status
-      if (page.status !== 'Draft') {
+      // Validate webhook secret
+      if (!process.env.WEBHOOK_SECRET) {
         return {
-          success: false,
-          message: `Cannot process page with status: ${page.status}`,
-          pageId
+          isValid: false,
+          error: 'Webhook secret not configured'
         };
       }
 
-      console.log(`\n🔄 Processing draft with title: "${page.title}"`);
-
-      // Process the draft using the DraftProcessorService
-      const result = await this.draftProcessor.processDraft({
-        id: pageId,
-        title: page.title,
-        status: 'Draft'
-      });
-
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to process draft');
+      if (secret !== process.env.WEBHOOK_SECRET) {
+        return {
+          isValid: false,
+          error: 'Invalid webhook secret'
+        };
       }
+
+      // Validate payload structure
+      if (!payload.data?.id) {
+        return {
+          isValid: false,
+          error: 'Missing page ID in payload'
+        };
+      }
+
+      return { isValid: true };
+    } catch (error) {
+      console.error('Error validating webhook:', error);
+      return {
+        isValid: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  /**
+   * Processes a webhook request
+   * @param payload The webhook payload
+   * @returns Processing result
+   */
+  async processWebhook(payload: WebhookPayload): Promise<WebhookProcessingResult> {
+    try {
+      // Get the page from Notion
+      const page = await this.notionService.getPage(payload.data.id);
+      if (!page) {
+        return {
+          success: false,
+          message: 'Page not found',
+          pageId: payload.data.id,
+          error: 'Page not found in Notion'
+        };
+      }
+
+      // Process the draft
+      const result = await this.draftProcessor.processDraft(page);
 
       return {
-        success: true,
-        message: 'Successfully processed webhook and generated variations',
-        pageId
+        success: result.success,
+        message: result.message,
+        pageId: payload.data.id,
+        error: result.error
       };
     } catch (error) {
-      console.error('Failed to process webhook:', error);
-      
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      
-      // Update status to Failed
-      if (payload.data.pageId) {
-        await this.notionService.updateTweetStatus(
-          payload.data.pageId,
-          'Failed to Post',
-          undefined,
-          errorMessage
-        );
-      }
-
+      console.error('Error processing webhook:', error);
       return {
         success: false,
         message: 'Failed to process webhook',
-        error: errorMessage,
-        pageId: payload.data.pageId
+        pageId: payload.data.id,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }

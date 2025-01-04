@@ -58,7 +58,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Validate payload structure
-    if (!payload.data?.pageId) {
+    if (!payload.data?.id) {
       console.log('❌ Invalid payload: missing pageId');
       return {
         statusCode: 400,
@@ -67,8 +67,8 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // Process only the specific page
-    console.log(`⚡ Processing draft variations for page ${payload.data.pageId}`);
-    const page = await notionService.getPage(payload.data.pageId);
+    console.log(`⚡ Processing draft variations for page ${payload.data.id}`);
+    const page = await notionService.getPage(payload.data.id);
     if (!page) {
       console.log('❌ Page not found');
       return {

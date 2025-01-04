@@ -9,111 +9,100 @@
  * - Requires .env file with Notion credentials
  */
 
-import { NotionService } from '../services/notion.service';
-import { WebhookService } from '../services/webhook.service';
 import { WebhookPayload } from '../types/webhook.types';
-import { NotionConfig } from '../types/notion.types';
-import * as dotenv from 'dotenv';
+import { NotionService } from '../services/notion.service';
+import { DraftProcessorService } from '../services/draft-processor.service';
+import { AI_CONFIG } from '../config/ai.config';
+import { handler } from '../webhook';
 
-// Load environment variables
-dotenv.config();
-
-async function main() {
+async function testWebhookHandler() {
   try {
-    console.log('🚀 Starting webhook handler test...\n');
-
-    // Debug: Check environment variables
-    console.log('🔍 Checking environment variables...');
-    const requiredEnvVars = ['NOTION_API_KEY', 'NOTION_DATABASE_ID'];
-    const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
-    if (missingEnvVars.length > 0) {
-      throw new Error(`Missing required environment variables: ${missingEnvVars.join(', ')}`);
+    console.log('🧪 Starting webhook handler test');
+    
+    // Load environment variables
+    const notionApiKey = process.env.NOTION_API_KEY;
+    const notionDatabaseId = process.env.NOTION_DATABASE_ID;
+    const webhookSecret = process.env.WEBHOOK_SECRET;
+    
+    console.log('🔑 Environment check:', {
+      NOTION_API_KEY: notionApiKey ? '✓ Present' : '✗ Missing',
+      NOTION_DATABASE_ID: notionDatabaseId ? '✓ Present' : '✗ Missing',
+      WEBHOOK_SECRET: webhookSecret ? '✓ Present' : '✗ Missing'
+    });
+    
+    if (!notionApiKey || !notionDatabaseId || !webhookSecret) {
+      throw new Error('Missing required environment variables');
     }
-    console.log('✅ All required environment variables present\n');
-
+    
     // Initialize services
-    console.log('📦 Initializing services...');
-    const notionConfig: NotionConfig = {
-      apiKey: process.env.NOTION_API_KEY!,
-      databaseId: process.env.NOTION_DATABASE_ID!
-    };
-
-    const notionService = new NotionService(notionConfig);
-    const webhookSecret = process.env.WEBHOOK_SECRET || 'test-secret';
-    console.log('🔑 Using webhook secret:', webhookSecret);
-    const webhookService = new WebhookService(notionService, webhookSecret);
-
-    // Test Notion connection
-    console.log('\n🔍 Testing Notion connection...');
-    try {
-      await notionService.validateDatabaseSchema();
-      console.log('✅ Database schema validation passed\n');
-    } catch (error) {
-      console.error('❌ Database schema validation failed:', error);
-      return;
-    }
-
-    // Get a draft page to test with
-    console.log('🔍 Finding a draft page to test with...');
-    const drafts = await notionService.getDrafts();
-    if (drafts.length === 0) {
-      console.error('❌ No draft pages found in the database. Please create a draft page first.');
-      return;
-    }
-    const testPage = drafts[0];
-    console.log(`📝 Found draft page: "${testPage.title}" (${testPage.id})\n`);
-
+    console.log('🔧 Initializing services');
+    const notionService = new NotionService({
+      apiKey: notionApiKey,
+      databaseId: notionDatabaseId
+    });
+    
     // Create test payload
+    console.log('📦 Creating test payload');
     const testPayload: WebhookPayload = {
-      event_type: 'databaseButtonClick',
+      source: {
+        type: 'automation',
+        automation_id: 'test-automation',
+        action_id: 'test-action',
+        event_id: 'test-event',
+        attempt: 1
+      },
       data: {
-        pageId: testPage.id,
-        buttonId: 'generate-variations'
+        object: 'page',
+        id: process.env.TEST_PAGE_ID || 'test-page-id',
+        created_time: new Date().toISOString(),
+        last_edited_time: new Date().toISOString(),
+        created_by: {
+          object: 'user',
+          id: 'test-user'
+        },
+        last_edited_by: {
+          object: 'user',
+          id: 'test-user'
+        },
+        parent: {
+          type: 'database_id',
+          database_id: notionDatabaseId
+        },
+        properties: {},
+        url: 'https://notion.so/test-page',
+        public_url: null,
+        request_id: 'test-request'
       }
     };
-    console.log('📦 Test payload:', JSON.stringify(testPayload, null, 2));
-
-    // Test 1: Validate webhook secret
-    console.log('\n🔒 Test 1: Validating webhook secret');
-    const secretValidation = webhookService.validateWebhookSecret(webhookSecret);
-    console.log('Result:', secretValidation);
-    if (!secretValidation.isValid) {
-      console.error('❌ Secret validation failed:', secretValidation.error);
-      return;
+    
+    // Create test event
+    const event = {
+      body: JSON.stringify(testPayload),
+      headers: {
+        'x-webhook-secret': webhookSecret
+      },
+      httpMethod: 'POST',
+      path: '/webhook',
+      requestContext: {},
+      resource: '/webhook'
+    };
+    
+    console.log('🚀 Calling webhook handler');
+    const response = await handler(event as any);
+    
+    console.log('📝 Response:', response);
+    
+    if (response.statusCode === 200) {
+      console.log('✅ Test passed');
+    } else {
+      console.log('❌ Test failed');
     }
-    console.log('✅ Secret validation passed\n');
-
-    // Test 2: Validate payload
-    console.log('📋 Test 2: Validating payload');
-    const payloadValidation = webhookService.validatePayload(testPayload);
-    console.log('Result:', payloadValidation);
-    if (!payloadValidation.isValid) {
-      console.error('❌ Payload validation failed:', payloadValidation.error);
-      return;
-    }
-    console.log('✅ Payload validation passed\n');
-
-    // Test 3: Process webhook
-    console.log('⚡ Test 3: Processing webhook');
-    try {
-      console.log('Processing payload for page:', testPayload.data.pageId);
-      const result = await webhookService.processWebhook(testPayload);
-      console.log('Processing result:', JSON.stringify(result, null, 2));
-      if (result.success) {
-        console.log('✅ Webhook processing succeeded');
-      } else {
-        console.error('❌ Webhook processing failed:', result.error);
-      }
-    } catch (error) {
-      console.error('❌ Error processing webhook:', error);
-    }
-
-    console.log('\n✨ Webhook handler test completed');
+    
+    return response;
   } catch (error) {
-    console.error('\n❌ Test failed:', error);
-    process.exit(1);
+    console.error('❌ Test failed with error:', error);
+    throw error;
   }
 }
 
-// Run the test
-main().catch(console.error); 
+testWebhookHandler().catch(console.error); 
