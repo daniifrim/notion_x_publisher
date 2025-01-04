@@ -34,35 +34,46 @@ package:
     - '!.git/**'
 
 functions:
-  notion-x-publisher-webhook:
+  # Webhook handler for manual draft processing via Notion button
+  draftProcessorWebhook:
     handler: src/webhook.handler
+    description: 'Handles webhook requests from Notion button to process draft tweets'
     events:
       - httpApi:
           path: /webhook
           method: post
     timeout: 30
     memorySize: 256
+    environment:
+      NOTION_API_KEY: ${env:NOTION_API_KEY}
+      NOTION_DATABASE_ID: ${env:NOTION_DATABASE_ID}
+      WEBHOOK_SECRET: ${env:WEBHOOK_SECRET}
+      OPENAI_API_KEY: ${env:OPENAI_API_KEY}
 
-  scraper:
-    handler: src/functions/scraper/index.handler
-    events:
-      - schedule: rate(1 hour)
-    timeout: 300
-    memorySize: 512
-
-  scheduler:
+  # Scheduled functions
+  scheduledTweetPublisher:
     handler: src/functions/scheduler/index.handler
+    description: 'Publishes tweets that are Ready To Publish on schedule'
     events:
       - schedule: rate(5 minutes)
     timeout: 60
     memorySize: 256
 
-  processor:
+  scheduledDraftProcessor:
     handler: src/functions/ai-processor/index.handler
+    description: 'Automatically processes draft tweets on schedule'
     events:
       - schedule: rate(30 minutes)
     timeout: 300
     memorySize: 1024
+
+  scheduledScraper:
+    handler: src/functions/scraper/index.handler
+    description: 'Scrapes content on schedule'
+    events:
+      - schedule: rate(1 hour)
+    timeout: 300
+    memorySize: 512
 
 custom:
   serverless-offline:

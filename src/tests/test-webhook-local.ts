@@ -1,56 +1,49 @@
-import { APIGatewayProxyEvent } from 'aws-lambda';
-import { handler } from '../webhook';
-import dotenv from 'dotenv';
+import { config } from 'dotenv';
+import { NotionService } from '../services/notion.service';
+import { DraftProcessorService } from '../services/draft-processor.service';
+import { AI_CONFIG } from '../config/ai.config';
 
 // Load environment variables
-dotenv.config();
+config();
 
-const createMockEvent = (pageId: string): APIGatewayProxyEvent => ({
-  body: JSON.stringify({
-    pageId,
-    action: 'button_clicked',
-    timestamp: new Date().toISOString()
-  }),
-  headers: {
-    'x-webhook-secret': process.env.WEBHOOK_SECRET || 'test-secret'
-  },
-  // Minimal mock implementation of other required properties
-  httpMethod: 'POST',
-  isBase64Encoded: false,
-  path: '/webhook',
-  queryStringParameters: null,
-  multiValueQueryStringParameters: null,
-  pathParameters: null,
-  stageVariables: null,
-  requestContext: {} as any,
-  resource: '',
-  multiValueHeaders: {}
-});
-
-async function testWebhook() {
-  console.log('Starting local webhook test...');
-  console.log('Environment variables loaded:', {
-    NOTION_API_KEY: process.env.NOTION_API_KEY ? '✓ Present' : '✗ Missing',
-    NOTION_DATABASE_ID: process.env.NOTION_DATABASE_ID ? '✓ Present' : '✗ Missing',
-    WEBHOOK_SECRET: process.env.WEBHOOK_SECRET ? '✓ Present' : '✗ Missing'
-  });
-
+async function testWebhookLocally() {
   try {
-    // Create mock event with test page ID
-    const mockEvent = createMockEvent(process.env.TEST_PAGE_ID || 'test-page-id');
-    console.log('\nSending test webhook with payload:', JSON.stringify(mockEvent.body, null, 2));
-
-    // Call handler
-    const response = await handler(mockEvent);
-    
-    console.log('\nWebhook response:', {
-      statusCode: response.statusCode,
-      body: JSON.parse(response.body)
+    console.log('🔧 Initializing services');
+    console.log('🔑 Environment check:', {
+      NOTION_API_KEY: process.env.NOTION_API_KEY ? '✓ Present' : '✗ Missing',
+      NOTION_DATABASE_ID: process.env.NOTION_DATABASE_ID ? '✓ Present' : '✗ Missing',
+      WEBHOOK_SECRET: process.env.WEBHOOK_SECRET ? '✓ Present' : '✗ Missing'
     });
+
+    const notionService = new NotionService({
+      apiKey: process.env.NOTION_API_KEY!,
+      databaseId: process.env.NOTION_DATABASE_ID!
+    });
+
+    const draftProcessor = new DraftProcessorService({
+      maxTokens: AI_CONFIG.defaultMaxTokens,
+      temperature: AI_CONFIG.defaultTemperature,
+      model: AI_CONFIG.model
+    }, notionService);
+
+    console.log('🔍 Fetching drafts from Notion');
+    const drafts = await notionService.getDrafts();
+    console.log(`📝 Found ${drafts.length} drafts:`, drafts);
+
+    console.log('⚡ Processing draft variations');
+    const results = await draftProcessor.processAllDrafts();
+    
+    console.log('✅ Draft processing completed:', JSON.stringify(results, null, 2));
   } catch (error) {
-    console.error('\nTest failed:', error);
+    console.error('❌ Error in local test:', {
+      error: error instanceof Error ? {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      } : error
+    });
   }
 }
 
 // Run the test
-testWebhook(); 
+testWebhookLocally(); 

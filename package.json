@@ -14,6 +14,7 @@
     "test:draft-processor": "ts-node src/tests/test-draft-processor.ts",
     "test:tweet-preview": "ts-node src/tests/test-tweet-preview.ts",
     "test:webhook": "ts-node src/tests/test-webhook-handler.ts",
+    "test:webhook:local": "ts-node src/tests/test-webhook-local.ts",
     "test": "echo \"Error: no test specified\" && exit 1",
     "deploy": "serverless deploy",
     "offline": "serverless offline"
