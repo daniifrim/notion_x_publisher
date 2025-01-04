@@ -34,7 +34,7 @@ package:
     - '!.git/**'
 
 functions:
-  webhook:
+  notion-x-publisher-webhook:
     handler: src/webhook.handler
     events:
       - httpApi:
