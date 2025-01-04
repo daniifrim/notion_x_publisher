@@ -42,4 +42,11 @@ export interface NotionInputBlock extends NotionBlock {
       plain_text: string;
     }>;
   };
+}
+
+export interface ProcessingResult {
+  success: boolean;
+  message: string;
+  variations: string[];
+  error?: string;
 } 

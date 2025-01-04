@@ -137,51 +137,27 @@ Example format of the variations:
     }
   }
 
-  async processDraft(draft: DraftTweet): Promise<ProcessingResult> {
+  /**
+   * Process a single draft page to generate variations
+   * @param page The Notion page to process
+   * @returns The processing results
+   */
+  async processDraft(page: any): Promise<ProcessingResult> {
     try {
-      console.log(`\n🔄 Processing draft: ${draft.title}`);
-
-      // Generate variations
-      const variations = await this.generateVariations(draft.title);
-      
-      if (!variations.length) {
-        console.error(`❌ No variations were generated for draft: ${draft.title}`);
-        await this.notionService.updateTweetStatus(draft.id, 'Failed to Post', undefined, 'No variations were generated');
-        return {
-          success: false,
-          message: 'Failed to generate variations',
-          error: 'No variations were generated'
-        };
-      }
-
-      // Update Notion page with variations and status
-      await this.notionService.updateTweetVariations(draft.id, variations);
-      await this.notionService.updateTweetStatus(draft.id, 'Processed');
-
-      console.log(`✅ Successfully processed draft: ${draft.title}`);
+      console.log('🔄 Processing draft:', page.properties?.Name?.title?.[0]?.plain_text);
+      const variations = await this.generateVariations(page.properties?.Name?.title?.[0]?.plain_text || '');
+      await this.notionService.updateTweetVariations(page.id, variations);
       return {
         success: true,
         message: 'Successfully generated variations',
         variations
       };
     } catch (error) {
-      console.error(`❌ Failed to process draft ${draft.id}:`, error);
-      
-      // Update status to Failed to Post with error message
-      try {
-        await this.notionService.updateTweetStatus(
-          draft.id,
-          'Failed to Post',
-          undefined,
-          error instanceof Error ? error.message : 'Unknown error'
-        );
-      } catch (updateError) {
-        console.error('Failed to update error status:', updateError);
-      }
-
+      console.error('Error processing draft:', error);
       return {
         success: false,
         message: 'Failed to process draft',
+        variations: [],
         error: error instanceof Error ? error.message : 'Unknown error'
       };
     }

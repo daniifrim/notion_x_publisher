@@ -809,4 +809,19 @@ export class NotionService {
       throw error;
     }
   }
+
+  /**
+   * Gets a specific page from Notion by ID
+   * @param pageId The ID of the page to retrieve
+   * @returns The page object or null if not found
+   */
+  async getPage(pageId: string) {
+    try {
+      const response = await this.client.pages.retrieve({ page_id: pageId });
+      return response;
+    } catch (error) {
+      console.error('Error getting page:', error);
+      return null;
+    }
+  }
 } 

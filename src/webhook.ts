@@ -5,25 +5,15 @@
  * 1. Validates the webhook secret to ensure the request is authorized.
  * 2. Parses and validates the JSON payload received from Notion.
  * 3. Uses the NotionService to interact with the Notion API.
- * 4. Uses the WebhookService to handle the business logic for processing the webhook payload.
- * 
- * The handler responds with appropriate HTTP status codes and messages based on the success or failure of the operations.
- * 
- * Key Components:
- * - NotionService: A service for interacting with the Notion API.
- * - WebhookService: A service for handling webhook-specific logic, including validation and processing.
- * - NotionConfig: Configuration for the Notion API, including API key and database ID.
- * - WebhookPayload: Type definition for the expected structure of the webhook payload.
+ * 4. Uses the DraftProcessorService to process the specific page.
  */
 
-
-
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { WebhookService } from './services/webhook.service';
 import { WebhookPayload } from './types/webhook.types';
 import { NotionService } from './services/notion.service';
 import { DraftProcessorService } from './services/draft-processor.service';
 import { AI_CONFIG } from './config/ai.config';
+import { ProcessingResult } from './types/notion.types';
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   console.log('🚀 Webhook handler started');
@@ -66,16 +56,36 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         body: JSON.stringify({ message: 'Unauthorized' })
       };
     }
-    
-    console.log('⚡ Processing draft variations');
-    const results = await draftProcessor.processAllDrafts();
+
+    // Validate payload structure
+    if (!payload.data?.pageId) {
+      console.log('❌ Invalid payload: missing pageId');
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ message: 'Invalid payload: missing pageId' })
+      };
+    }
+
+    // Process only the specific page
+    console.log(`⚡ Processing draft variations for page ${payload.data.pageId}`);
+    const page = await notionService.getPage(payload.data.pageId);
+    if (!page) {
+      console.log('❌ Page not found');
+      return {
+        statusCode: 404,
+        body: JSON.stringify({ message: 'Page not found' })
+      };
+    }
+
+    const results = await draftProcessor.processDraft(page);
     
     console.log('✅ Draft processing completed:', results);
     return {
-      statusCode: 200,
+      statusCode: results.success ? 200 : 500,
       body: JSON.stringify({ 
-        message: 'Successfully processed drafts',
-        results 
+        message: results.message,
+        results,
+        ...(results.error && { error: results.error })
       })
     };
   } catch (error) {
