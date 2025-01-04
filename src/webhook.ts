@@ -22,29 +22,50 @@ import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { WebhookService } from './services/webhook.service';
 import { WebhookPayload } from './types/webhook.types';
 import { NotionService } from './services/notion.service';
+import { DraftProcessorService } from './services/draft-processor.service';
+import { AI_CONFIG } from './config/ai.config';
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   console.log('Webhook handler started');
   console.log('Event:', JSON.stringify(event, null, 2));
   
   try {
-    console.log('Initializing webhook service');
+    console.log('Initializing services');
     const notionService = new NotionService({
       apiKey: process.env.NOTION_API_KEY!,
       databaseId: process.env.NOTION_DATABASE_ID!
     });
+    
+    const draftProcessor = new DraftProcessorService({
+      maxTokens: AI_CONFIG.defaultMaxTokens,
+      temperature: AI_CONFIG.defaultTemperature,
+      model: AI_CONFIG.model
+    }, notionService);
+    
     const webhookService = new WebhookService(notionService, process.env.WEBHOOK_SECRET!);
     
     console.log('Parsing webhook payload');
     const payload = JSON.parse(event.body || '{}') as WebhookPayload;
     
-    console.log('Processing webhook request');
-    const result = await webhookService.processWebhook(payload);
+    console.log('Validating webhook secret');
+    const webhookSecret = event.headers['x-webhook-secret'];
+    if (webhookSecret !== process.env.WEBHOOK_SECRET) {
+      return {
+        statusCode: 401,
+        body: JSON.stringify({ message: 'Unauthorized' })
+      };
+    }
     
-    console.log('Webhook processing completed:', result);
+    console.log('Processing draft variations');
+    const results = await draftProcessor.processAllDrafts();
+    
+    console.log('Draft processing completed:', results);
     return {
       statusCode: 200,
-      body: JSON.stringify({ message: 'Success' })
+      body: JSON.stringify({ 
+        message: 'Successfully processed drafts',
+        results 
+      })
     };
   } catch (error) {
     console.error('Error in webhook handler:', error);
