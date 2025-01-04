@@ -34,6 +34,15 @@ package:
     - '!.git/**'
 
 functions:
+  webhook:
+    handler: src/webhook.handler
+    events:
+      - httpApi:
+          path: /webhook
+          method: post
+    timeout: 30
+    memorySize: 256
+
   scraper:
     handler: src/functions/scraper/index.handler
     events:
