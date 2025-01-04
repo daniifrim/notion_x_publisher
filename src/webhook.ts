@@ -34,24 +34,33 @@ const webhookService = new WebhookService(notionService, process.env.WEBHOOK_SEC
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
-    console.log('Webhook received:', {
+    console.log('🔍 Webhook received:', {
       headers: event.headers,
       body: event.body,
-      requestContext: event.requestContext
+      path: event.path,
+      httpMethod: event.httpMethod
     });
 
     // Verify webhook secret
     const webhookSecret = event.headers['x-webhook-secret'];
-    console.log('Webhook secret check:', {
+    console.log('🔑 Webhook secret check:', {
       received: webhookSecret,
-      expected: process.env.WEBHOOK_SECRET
+      expected: process.env.WEBHOOK_SECRET,
+      envVars: {
+        NOTION_API_KEY: process.env.NOTION_API_KEY ? '✓ Present' : '✗ Missing',
+        NOTION_DATABASE_ID: process.env.NOTION_DATABASE_ID ? '✓ Present' : '✗ Missing',
+        WEBHOOK_SECRET: process.env.WEBHOOK_SECRET ? '✓ Present' : '✗ Missing'
+      }
     });
 
     if (webhookSecret !== process.env.WEBHOOK_SECRET) {
-      console.log('Webhook secret mismatch');
+      console.log('❌ Webhook secret mismatch');
       return {
         statusCode: 401,
-        body: JSON.stringify({ message: 'Unauthorized' })
+        body: JSON.stringify({ 
+          message: 'Unauthorized',
+          error: 'Invalid webhook secret'
+        })
       };
     }
 
@@ -59,34 +68,53 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     let payload: WebhookPayload;
     try {
       payload = JSON.parse(event.body || '{}') as WebhookPayload;
+      console.log('📦 Parsed payload:', payload);
     } catch (error) {
+      console.error('❌ JSON parsing error:', error);
       return {
         statusCode: 400,
         body: JSON.stringify({
-          message: 'Invalid JSON payload'
+          message: 'Invalid JSON payload',
+          error: error instanceof Error ? error.message : 'Unknown parsing error'
         })
       };
     }
 
     const payloadValidation = webhookService.validatePayload(payload);
+    console.log('🔍 Payload validation result:', payloadValidation);
+    
     if (!payloadValidation.isValid) {
       return {
         statusCode: 400,
         body: JSON.stringify({
-          message: payloadValidation.error || 'Invalid payload'
+          message: 'Invalid payload',
+          error: payloadValidation.error
         })
       };
     }
 
     // Process the webhook
+    console.log('⚡ Processing webhook for page:', payload.data.pageId);
     const result = await webhookService.processWebhook(payload);
+    console.log('✅ Processing result:', result);
 
     return {
       statusCode: result.success ? 200 : 500,
       body: JSON.stringify(result)
     };
   } catch (error) {
-    console.error('Webhook handler error:', error);
+    console.error('❌ Webhook handler error:', {
+      error: error instanceof Error ? {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      } : error,
+      event: {
+        path: event.path,
+        httpMethod: event.httpMethod,
+        headers: event.headers
+      }
+    });
     
     return {
       statusCode: 500,
