@@ -48,23 +48,23 @@ functions:
       WEBHOOK_SECRET: ${env:WEBHOOK_SECRET}
       OPENAI_API_KEY: ${env:OPENAI_API_KEY}
 
-  # Tweet publisher (every 5 minutes)
-  tweetPublisher:
-    handler: src/functions/scheduler/index.handler
+  # Main scheduler function
+  notionPublisher:
+    handler: src/scheduled.handler
+    description: 'Main scheduler for all periodic tasks'
     events:
-      - schedule: rate(5 minutes)
-
-  # Draft processor (every 30 minutes)
-  draftProcessor:
-    handler: src/functions/ai-processor/index.handler
-    events:
-      - schedule: rate(30 minutes)
-
-  # Content scraper (every hour)
-  contentScraper:
-    handler: src/functions/scraper/index.handler
-    events:
-      - schedule: rate(1 hour)
+      - schedule: 
+          rate: rate(5 minutes)
+          name: tweet-publisher
+          description: 'Publishes ready tweets'
+      - schedule:
+          rate: rate(30 minutes)
+          name: draft-processor
+          description: 'Processes draft tweets'
+      - schedule:
+          rate: rate(1 hour)
+          name: content-scraper
+          description: 'Scrapes content for analysis'
 
 custom:
   serverless-offline:

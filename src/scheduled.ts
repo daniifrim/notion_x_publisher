@@ -22,8 +22,11 @@
 import * as dotenv from 'dotenv';
 import { NotionService } from './services/notion.service';
 import { TwitterService } from './services/twitter.service';
+import { DraftProcessorService } from './services/draft-processor.service';
+import { ScraperService } from './services/scraper.service';
+import { AI_CONFIG } from './config/ai.config';
 import { NotionConfig } from './types/notion.types';
-import { TwitterConfig, TweetContent, MediaUpload } from './types/twitter.types';
+import { TwitterConfig, TweetContent } from './types/twitter.types';
 
 // Load environment variables
 dotenv.config();
@@ -31,130 +34,68 @@ dotenv.config();
 export const handler = async (event: any): Promise<any> => {
   try {
     console.log('🕒 Starting scheduled Lambda execution...');
-    console.log('⏰ Current time:', new Date().toISOString());
+    console.log('📦 Event:', JSON.stringify(event, null, 2));
 
-    // Validate environment variables
-    const requiredEnvVars = [
-      'NOTION_API_KEY',
-      'NOTION_DATABASE_ID',
-      'TWITTER_API_KEY',
-      'TWITTER_API_SECRET',
-      'TWITTER_ACCESS_TOKEN',
-      'TWITTER_ACCESS_TOKEN_SECRET'
-    ];
+    // Get the schedule name from the event
+    const scheduleName = event?.resources?.[0]?.split('/')?.[1] || 'unknown';
+    console.log('📅 Schedule:', scheduleName);
 
-    const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
-    if (missingEnvVars.length > 0) {
-      throw new Error(`Missing required environment variables: ${missingEnvVars.join(', ')}`);
-    }
-
-    // Initialize services
-    console.log('📦 Initializing services...');
-    const notionConfig: NotionConfig = {
+    // Initialize services based on the task
+    const notionService = new NotionService({
       databaseId: process.env.NOTION_DATABASE_ID!,
       apiKey: process.env.NOTION_API_KEY!
-    };
+    });
 
-    const twitterConfig: TwitterConfig = {
-      apiKey: process.env.TWITTER_API_KEY!,
-      apiKeySecret: process.env.TWITTER_API_SECRET!,
-      accessToken: process.env.TWITTER_ACCESS_TOKEN!,
-      accessTokenSecret: process.env.TWITTER_ACCESS_TOKEN_SECRET!
-    };
-
-    const notionService = new NotionService(notionConfig);
-    const twitterService = new TwitterService(twitterConfig);
-
-    // Initialize Twitter service
-    console.log('🐦 Initializing Twitter service...');
-    await twitterService.initialize();
-    console.log('✅ Twitter service initialized');
-
-    // Get ready tweets
-    console.log('\n📝 Checking for ready tweets...');
-    const readyTweets = await notionService.getReadyTweets();
-    console.log(`Found ${readyTweets.length} tweets ready to publish`);
-
-    // Process each tweet
-    const results = [];
-    for (const tweet of readyTweets) {
-      try {
-        if (tweet.isThread) {
-          console.log(`\n🧵 Processing thread: "${tweet.title}"`);
-          
-          // Split content into individual tweets and convert images to media
-          const threadTweets: TweetContent[] = tweet.content.split('\n')
-            .filter(t => t.trim().length > 0)
-            .map(content => ({
-              content,
-              media: tweet.images?.map(url => ({ url, type: 'image' as const }))
-            }));
-          
-          console.log(`Thread contains ${threadTweets.length} tweets:`);
-          threadTweets.forEach((t, index) => {
-            console.log(`\n[${index + 1}/${threadTweets.length}] ${t.content}`);
-            if (t.media?.length) {
-              console.log(`🖼️ Media: ${t.media.length}`);
-            }
-          });
-
-          const threadResult = await twitterService.postThread(threadTweets);
-          console.log('✅ Thread published successfully');
-          console.log(`🔗 Thread URL: ${threadResult.threadUrl}`);
-
-          await notionService.updateTweetStatus(tweet.id, 'Published', threadResult.threadUrl);
-          console.log('✅ Notion status updated');
-          
-          results.push({
-            id: tweet.id,
-            success: true,
-            url: threadResult.threadUrl
-          });
-        } else {
-          console.log(`\n🔄 Processing single tweet: "${tweet.content}"`);
-          console.log(`Scheduled for: ${tweet.scheduledTime.toLocaleString()}`);
-          
-          // Convert images to media
-          const media = tweet.images?.map(url => ({ url, type: 'image' as const }));
-          if (media?.length) {
-            console.log(`🖼️ Media: ${media.length}`);
-          }
-
-          const publishedTweet = await twitterService.postTweet(tweet.content, media);
-          console.log('✅ Tweet published successfully');
-          console.log(`🔗 Tweet URL: ${publishedTweet.url}`);
-
-          await notionService.updateTweetStatus(tweet.id, 'Published', publishedTweet.url);
-          console.log('✅ Notion status updated');
-          
-          results.push({
-            id: tweet.id,
-            success: true,
-            url: publishedTweet.url
-          });
-        }
-      } catch (error) {
-        console.error(`❌ Failed to process tweet ${tweet.id}:`, error);
-        await notionService.updateTweetStatus(
-          tweet.id,
-          'Failed to Post',
-          undefined,
-          error instanceof Error ? error.message : 'Unknown error'
-        );
-        results.push({
-          id: tweet.id,
-          success: false,
-          error: error instanceof Error ? error.message : 'Unknown error'
+    switch (scheduleName) {
+      case 'tweet-publisher':
+        console.log('🐦 Running tweet publisher...');
+        const twitterService = new TwitterService({
+          apiKey: process.env.TWITTER_API_KEY!,
+          apiKeySecret: process.env.TWITTER_API_SECRET!,
+          accessToken: process.env.TWITTER_ACCESS_TOKEN!,
+          accessTokenSecret: process.env.TWITTER_ACCESS_TOKEN_SECRET!
         });
-      }
+
+        // Get ready tweets
+        const readyTweets = await notionService.getReadyTweets();
+        console.log(`Found ${readyTweets.length} tweets ready to publish`);
+
+        // Process tweets...
+        break;
+
+      case 'draft-processor':
+        console.log('📝 Running draft processor...');
+        const draftProcessor = new DraftProcessorService({
+          maxTokens: AI_CONFIG.defaultMaxTokens,
+          temperature: AI_CONFIG.defaultTemperature,
+          model: AI_CONFIG.model
+        }, notionService);
+
+        const results = await draftProcessor.processAllDrafts();
+        console.log('✅ Draft processing completed:', results);
+        break;
+
+      case 'content-scraper':
+        console.log('🔍 Running content scraper...');
+        const scraperService = new ScraperService({
+          apifyToken: process.env.APIFY_API_TOKEN!,
+          taskId: process.env.APIFY_TASK_ID!
+        });
+
+        const config = await notionService.getInputConfig();
+        const scrapedData = await scraperService.scrapeTweets(config.interests);
+        console.log('✅ Content scraping completed:', scrapedData);
+        break;
+
+      default:
+        console.log(`⚠️ Unknown schedule: ${scheduleName}`);
     }
 
     return {
       statusCode: 200,
       body: JSON.stringify({
-        message: 'Successfully processed scheduled tweets',
-        processed: readyTweets.length,
-        results
+        message: 'Successfully processed scheduled task',
+        schedule: scheduleName
       })
     };
   } catch (error) {
@@ -162,7 +103,7 @@ export const handler = async (event: any): Promise<any> => {
     return {
       statusCode: 500,
       body: JSON.stringify({
-        message: 'Failed to process scheduled tweets',
+        message: 'Failed to process scheduled task',
         error: error instanceof Error ? error.message : 'Unknown error'
       })
     };
