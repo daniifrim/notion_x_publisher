@@ -19,12 +19,12 @@ export interface ScheduledTweet {
   id: string;
   content: string;
   scheduledTime: Date;
-  status: NotionStatus;
+  threadId?: string;
   retryCount: number;
   lastAttempt?: Date;
   error?: string;
-  threadId?: string;
-  threadPosition?: number;
+  images?: string[];
+  status?: NotionStatus;
 }
 
 export interface TweetQueue {

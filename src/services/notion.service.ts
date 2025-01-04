@@ -34,17 +34,28 @@ export class NotionService {
     }
   }
 
-  private async extractTweetContent(page: any): Promise<string> {
+  private async extractTweetContent(page: any): Promise<{ content: string; imageUrls: string[] }> {
     try {
       const blocks = await this.client.blocks.children.list({
         block_id: page.id
       });
 
+      const imageUrls: string[] = [];
+
       // For threads, join blocks with a separator
       if (page.properties['Thread']?.checkbox) {
-        return blocks.results
+        const content = blocks.results
           .map(block => {
-            // Type guard for paragraph blocks
+            // Handle image blocks
+            if ('type' in block && block.type === 'image') {
+              if ('file' in block.image) {
+                imageUrls.push(block.image.file.url);
+              } else if ('external' in block.image) {
+                imageUrls.push(block.image.external.url);
+              }
+              return '';
+            }
+            // Handle paragraph blocks
             if ('type' in block && block.type === 'paragraph' && 'paragraph' in block) {
               return block.paragraph.rich_text
                 .map((text: { plain_text: string }) => text.plain_text)
@@ -54,12 +65,23 @@ export class NotionService {
           })
           .filter(text => text.length > 0)
           .join('\n\n---\n\n');
+
+        return { content, imageUrls };
       }
 
       // For single tweets, join all blocks into one tweet
-      return blocks.results
+      const content = blocks.results
         .map(block => {
-          // Type guard for paragraph blocks
+          // Handle image blocks
+          if ('type' in block && block.type === 'image') {
+            if ('file' in block.image) {
+              imageUrls.push(block.image.file.url);
+            } else if ('external' in block.image) {
+              imageUrls.push(block.image.external.url);
+            }
+            return '';
+          }
+          // Handle paragraph blocks
           if ('type' in block && block.type === 'paragraph' && 'paragraph' in block) {
             return block.paragraph.rich_text
               .map((text: { plain_text: string }) => text.plain_text)
@@ -69,6 +91,8 @@ export class NotionService {
         })
         .filter(text => text.length > 0)
         .join('\n\n');
+
+      return { content, imageUrls };
     } catch (error) {
       console.error('Failed to extract tweet content:', error);
       throw error;
@@ -129,18 +153,34 @@ export class NotionService {
             if (isThread) {
               console.log('🔍 Getting thread content...');
               // For threads, we'll get the content from the page blocks
-              const threadContent = await this.extractTweetContent(page);
+              const { content: threadContent, imageUrls } = await this.extractTweetContent(page);
               console.log('📝 Thread tweets:', threadContent);
               content = threadContent;
+
+              const tweet: NotionTweet = {
+                id: page.id,
+                title,
+                content,
+                isThread,
+                scheduledTime: scheduledTime ? new Date(scheduledTime) : now,
+                status: properties.Status.status?.name || 'Draft',
+                images: imageUrls
+              };
+
+              console.log('✅ Processed tweet:', tweet);
+              return tweet;
             }
 
+            // For single tweets, get content and image
+            const { content: tweetContent, imageUrls } = await this.extractTweetContent(page);
             const tweet: NotionTweet = {
               id: page.id,
               title,
-              content,
+              content: tweetContent || content, // Use extracted content if available, fallback to title
               isThread,
               scheduledTime: scheduledTime ? new Date(scheduledTime) : now,
               status: properties.Status.status?.name || 'Draft',
+              images: imageUrls
             };
 
             console.log('✅ Processed tweet:', tweet);
@@ -685,7 +725,7 @@ export class NotionService {
           .map(async page => {
             const properties = page.properties as any;
             const title = properties.Idea.title[0]?.plain_text || '';
-            const content = await this.extractTweetContent(page);
+            const { content, imageUrls } = await this.extractTweetContent(page);
             
             return {
               id: page.id,
@@ -693,7 +733,8 @@ export class NotionService {
               content,
               status: 'Draft' as NotionStatus,
               scheduledTime: new Date(),
-              isThread: false
+              isThread: false,
+              images: imageUrls
             };
           })
       );

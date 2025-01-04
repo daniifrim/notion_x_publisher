@@ -6,12 +6,13 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
-    "start:local": "ts-node src/local.ts",
+    "test:local": "ts-node src/local.ts",
     "test:scraper": "ts-node src/tests/test-scraper.ts",
     "test:scheduler": "ts-node src/tests/test-scheduler.ts",
     "test:extraction": "ts-node src/tests/test-tweet-extraction.ts",
     "test:notifications": "ts-node src/tests/test-notifications.ts",
     "test:draft-processor": "ts-node src/tests/test-draft-processor.ts",
+    "test:tweet-preview": "ts-node src/tests/test-tweet-preview.ts",
     "test": "echo \"Error: no test specified\" && exit 1",
     "deploy": "serverless deploy",
     "offline": "serverless offline"
@@ -29,6 +30,7 @@
     "dotenv": "^16.4.7",
     "twitter-api-v2": "^1.19.0",
     "openai": "^4.24.1",
-    "apify-client": "^2.8.1"
+    "apify-client": "^2.8.1",
+    "chalk": "^4.1.2"
   }
 }

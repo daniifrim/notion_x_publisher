@@ -16,6 +16,7 @@ export interface NotionTweet {
   scheduledTime: Date;
   isThread: boolean;
   error?: string;
+  images?: string[];
 }
 
 export interface NotionBlock {
