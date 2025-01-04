@@ -56,15 +56,15 @@ functions:
       - schedule: 
           rate: rate(5 minutes)
           name: tweet-publisher
-          description: 'Publishes ready tweets'
+          enabled: true
       - schedule:
           rate: rate(30 minutes)
           name: draft-processor
-          description: 'Processes draft tweets'
+          enabled: true
       - schedule:
           rate: rate(1 hour)
           name: content-scraper
-          description: 'Scrapes content for analysis'
+          enabled: true
 
 custom:
   serverless-offline:

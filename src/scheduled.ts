@@ -36,6 +36,17 @@ export const handler = async (event: any): Promise<any> => {
     console.log('🕒 Starting scheduled Lambda execution...');
     console.log('📦 Event:', JSON.stringify(event, null, 2));
 
+    // Skip if this is a webhook request (should be handled by webhook.handler)
+    if (event.routeKey === 'POST /webhook') {
+      console.log('⚠️ Webhook request received in scheduler handler, skipping...');
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          message: 'Webhook requests should be handled by the webhook handler'
+        })
+      };
+    }
+
     // Get the schedule name from the event
     const scheduleName = event?.resources?.[0]?.split('/')?.[1] || 'unknown';
     console.log('📅 Schedule:', scheduleName);
