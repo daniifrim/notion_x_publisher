@@ -26,11 +26,16 @@ import { DraftProcessorService } from './services/draft-processor.service';
 import { AI_CONFIG } from './config/ai.config';
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
-  console.log('Webhook handler started');
-  console.log('Event:', JSON.stringify(event, null, 2));
+  console.log('🚀 Webhook handler started');
+  console.log('📥 Event:', JSON.stringify({
+    headers: event.headers,
+    body: event.body,
+    path: event.path,
+    httpMethod: event.httpMethod
+  }, null, 2));
   
   try {
-    console.log('Initializing services');
+    console.log('🔧 Initializing services');
     const notionService = new NotionService({
       apiKey: process.env.NOTION_API_KEY!,
       databaseId: process.env.NOTION_DATABASE_ID!
@@ -42,24 +47,30 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       model: AI_CONFIG.model
     }, notionService);
     
-    const webhookService = new WebhookService(notionService, process.env.WEBHOOK_SECRET!);
+    console.log('🔑 Environment check:', {
+      NOTION_API_KEY: process.env.NOTION_API_KEY ? '✓ Present' : '✗ Missing',
+      NOTION_DATABASE_ID: process.env.NOTION_DATABASE_ID ? '✓ Present' : '✗ Missing',
+      WEBHOOK_SECRET: process.env.WEBHOOK_SECRET ? '✓ Present' : '✗ Missing'
+    });
     
-    console.log('Parsing webhook payload');
+    console.log('📦 Parsing webhook payload');
     const payload = JSON.parse(event.body || '{}') as WebhookPayload;
+    console.log('📄 Parsed payload:', payload);
     
-    console.log('Validating webhook secret');
+    console.log('🔒 Validating webhook secret');
     const webhookSecret = event.headers['x-webhook-secret'];
     if (webhookSecret !== process.env.WEBHOOK_SECRET) {
+      console.log('❌ Webhook secret mismatch');
       return {
         statusCode: 401,
         body: JSON.stringify({ message: 'Unauthorized' })
       };
     }
     
-    console.log('Processing draft variations');
+    console.log('⚡ Processing draft variations');
     const results = await draftProcessor.processAllDrafts();
     
-    console.log('Draft processing completed:', results);
+    console.log('✅ Draft processing completed:', results);
     return {
       statusCode: 200,
       body: JSON.stringify({ 
@@ -68,7 +79,13 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       })
     };
   } catch (error) {
-    console.error('Error in webhook handler:', error);
+    console.error('❌ Error in webhook handler:', {
+      error: error instanceof Error ? {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      } : error
+    });
     return {
       statusCode: 500,
       body: JSON.stringify({ message: 'Internal Server Error', error: error instanceof Error ? error.message : 'Unknown error' })
