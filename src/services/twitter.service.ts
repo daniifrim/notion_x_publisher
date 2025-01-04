@@ -1,3 +1,23 @@
+/**
+ * Twitter Service
+ * 
+ * This service is responsible for interacting with the Twitter API to post tweets and threads.
+ * It provides methods for uploading media, posting tweets, and handling rate limits.
+ * 
+ * Key Responsibilities:
+ * 1. Upload media to Twitter.
+ * 2. Post tweets and threads.
+ * 3. Handle rate limits and errors.
+ * 
+ * Configuration:
+ * - TwitterConfig: Configuration settings for the Twitter API.
+ * 
+ * Methods:
+ * - postTweet: Posts a single tweet.
+ * - postThread: Posts a thread of tweets.
+ * - scheduleTweet: Schedules a tweet to be posted at a future date.
+ */
+
 import { TwitterApi } from 'twitter-api-v2';
 import { TwitterConfig, Tweet, TweetContent, MediaType, MediaUpload } from '../types/twitter.types';
 

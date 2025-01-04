@@ -1,3 +1,20 @@
+/**
+ * Draft Processor Service
+ * 
+ * This service is responsible for processing draft tweets and generating variations.
+ * It uses the AI service to generate variations and the Notion service to update the draft.
+ * 
+ * Key Responsibilities:
+ * 1. Generate variations for a draft tweet.
+ * 2. Update the draft in Notion with the generated variations.
+ * 3. Handle errors and update the draft status accordingly.
+ * 
+ * Configuration:
+ * - DraftProcessorConfig: Configuration settings for the draft processor.
+ * - DraftTweet: Type for a draft tweet.
+ * - ProcessingResult: Type for the result of processing a draft.
+ */ 
+
 import { NotionService } from './notion.service';
 import { AIService } from './ai.service';
 import { DraftProcessorConfig, DraftTweet, ProcessingResult } from '../types/draft-processor.types';

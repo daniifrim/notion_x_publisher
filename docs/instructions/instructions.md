@@ -1,4 +1,143 @@
-# Notion X Publisher
+# Notion X Publisher - Instructions
+
+## Architecture Overview
+
+### Lambda Functions and Entry Points
+
+1. **Main Lambda Function (`notion-x-publisher`)**
+   - Primary function that handles multiple entry points
+   - Default handler: `index.default` (from `scheduled.ts`)
+   - Handles webhook requests and scheduled tasks
+   - Memory: 256MB
+   - Timeout: 300 seconds
+
+2. **Function Entry Points**
+   ```
+   src/
+   ├── index.ts              # Main entry point, exports all handlers
+   ├── scheduled.ts          # Default handler (main publisher)
+   └── functions/
+       ├── scheduler/        # Tweet publishing (5-min intervals)
+       ├── scraper/         # Tweet scraping (hourly)
+       └── ai-processor/    # Draft processing (30-min intervals)
+   ```
+
+3. **Scheduled Tasks**
+   - Draft Processing: Every 30 minutes
+     - Handler: `src/functions/ai-processor/index.handler`
+     - Memory: 1024MB
+     - Purpose: Generate tweet variations from drafts
+   
+   - Tweet Publishing: Every 5 minutes
+     - Handler: `src/functions/scheduler/index.handler`
+     - Memory: 256MB
+     - Purpose: Check and publish scheduled tweets
+   
+   - Tweet Scraping: Every hour
+     - Handler: `src/functions/scraper/index.handler`
+     - Memory: 512MB
+     - Purpose: Scrape and analyze tweets
+
+4. **Webhook Handler**
+   - Triggered by Notion button clicks
+   - Uses the default handler
+   - Processes manual tweet variation requests
+   - Integrated through API Gateway
+
+### Service Layer
+
+Our services are shared across all functions and entry points:
+
+1. **Core Services**
+   - `NotionService`: Manages Notion database operations
+   - `TwitterService`: Handles Twitter API interactions
+   - `AIService`: Manages OpenAI integrations
+   - `ScraperService`: Handles tweet scraping
+   - `SchedulerService`: Manages tweet scheduling
+   - `DraftProcessorService`: Processes draft tweets
+
+2. **Service Organization**
+   ```
+   src/services/
+   ├── notion.service.ts      # Notion API integration
+   ├── twitter.service.ts     # Twitter API integration
+   ├── ai.service.ts         # OpenAI integration
+   ├── scraper.service.ts    # Tweet scraping logic
+   ├── scheduler.service.ts  # Tweet scheduling
+   └── draft-processor.service.ts  # Draft processing
+   ```
+
+### AWS Configuration
+
+1. **API Gateway Setup**
+   - Create HTTP API
+   - Integration: Select `notion-x-publisher` function
+   - Method: POST
+   - Path: /webhook
+   - The function's default handler will process webhook requests
+
+2. **EventBridge Rules**
+   - Configured through `serverless.yml`
+   - Each scheduled task has its own rule
+   - No manual EventBridge setup needed
+
+3. **Environment Variables**
+   ```
+   NOTION_API_KEY=your_notion_api_key
+   NOTION_DATABASE_ID=your_database_id
+   TWITTER_API_KEY=your_twitter_api_key
+   TWITTER_API_SECRET=your_twitter_api_secret
+   TWITTER_ACCESS_TOKEN=your_access_token
+   TWITTER_ACCESS_TOKEN_SECRET=your_access_token_secret
+   OPENAI_API_KEY=your_openai_api_key
+   WEBHOOK_SECRET=your_webhook_secret
+   ```
+
+### Development Workflow
+
+1. **Local Testing**
+   - Use `npm run test:local` for local development
+   - Simulates Lambda environment
+   - Tests all services without deployment
+
+2. **Deployment**
+   - Use `npm run deploy` to deploy all functions
+   - Serverless Framework handles configuration
+   - Updates all function configurations
+
+3. **Monitoring**
+   - CloudWatch Logs for each function
+   - Separate log groups for each handler
+   - Monitor execution times and errors
+
+### Best Practices
+
+1. **Function Organization**
+   - Keep handlers lightweight
+   - Delegate business logic to services
+   - Share code through service layer
+
+2. **Error Handling**
+   - Implement retries for transient failures
+   - Log errors with context
+   - Update Notion status on failures
+
+3. **Performance**
+   - Optimize cold starts
+   - Use appropriate memory settings
+   - Monitor execution times
+
+### Troubleshooting
+
+1. **Common Issues**
+   - Check CloudWatch logs for errors
+   - Verify environment variables
+   - Test services individually
+
+2. **Debugging**
+   - Use local development environment
+   - Check service initialization
+   - Monitor API rate limits
 
 ## Project Overview
 This project automates the publication of tweets from a Notion database to X (formerly Twitter). It uses AWS Lambda for scheduling, handles rate limits and error cases gracefully, and includes AI-powered tweet analysis and thread support.
@@ -301,3 +440,39 @@ The project uses GitHub Actions for automatic deployment to AWS Lambda:
    - If the model is `gpt-4o` use `gpt-4o` as the model name
    - Do not try to change it to other variant
    - Do not change this to `gpt-4` or any other variant
+
+## Manual Tweet Variation Generation
+
+The system supports manual generation of tweet variations through a webhook triggered by a button in Notion:
+
+1. **Button Setup in Notion**
+   - Each draft tweet has a "Create Variations" button
+   - When clicked, it triggers the webhook to generate variations
+   - The button is only active for tweets in "Draft" status
+
+2. **Webhook Functionality**
+   - Validates the webhook secret for security
+   - Retrieves the draft tweet's title from the database
+   - Uses the AI service to generate 5 variations in different styles:
+     - Straightforward
+     - Casual and conversational
+     - Engaging with a question
+     - Humorous or witty
+     - Thought-provoking
+
+3. **Response Handling**
+   - Updates the Notion page with generated variations
+   - Changes status to "Processed" when successful
+   - Sets status to "Failed to Post" with error message if unsuccessful
+
+4. **Usage**
+   - Click the "Create Variations" button in Notion
+   - Wait for the webhook to process (typically a few seconds)
+   - Review the generated variations in the page content
+   - Select preferred variation for scheduling
+
+5. **Error Handling**
+   - Validates webhook payload and secret
+   - Checks page status before processing
+   - Provides detailed error messages in Notion
+   - Implements retry mechanism for transient failures

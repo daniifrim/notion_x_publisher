@@ -13,11 +13,13 @@
     "test:notifications": "ts-node src/tests/test-notifications.ts",
     "test:draft-processor": "ts-node src/tests/test-draft-processor.ts",
     "test:tweet-preview": "ts-node src/tests/test-tweet-preview.ts",
+    "test:webhook": "ts-node src/tests/test-webhook-handler.ts",
     "test": "echo \"Error: no test specified\" && exit 1",
     "deploy": "serverless deploy",
     "offline": "serverless offline"
-  }, 
+  },
   "devDependencies": {
+    "@types/aws-lambda": "^8.10.147",
     "@types/node": "^22.10.2",
     "serverless": "^3.38.0",
     "serverless-offline": "^13.3.2",
@@ -27,10 +29,10 @@
   },
   "dependencies": {
     "@notionhq/client": "^2.2.15",
-    "dotenv": "^16.4.7",
-    "twitter-api-v2": "^1.19.0",
-    "openai": "^4.24.1",
     "apify-client": "^2.8.1",
-    "chalk": "^4.1.2"
+    "chalk": "^4.1.2",
+    "dotenv": "^16.4.7",
+    "openai": "^4.24.1",
+    "twitter-api-v2": "^1.19.0"
   }
 }

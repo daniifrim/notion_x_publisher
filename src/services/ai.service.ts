@@ -1,3 +1,23 @@
+/**
+ * AI Service
+ * 
+ * This service is responsible for interacting with the OpenAI API to generate text completions.
+ * It provides methods for creating completions, analyzing tweets, and creating prompt completions.
+ * 
+ * Key Responsibilities:
+ * 1. Create text completions.
+ * 2. Analyze tweets.
+ * 3. Create prompt completions.
+ * 
+ * Configuration:
+ * - AI_CONFIG: Configuration settings for the AI API.
+ * 
+ * Methods:
+ * - createCompletion: Creates a text completion.
+ * - analyzeTweets: Analyzes tweets for engagement patterns.
+ * - createPromptCompletion: Creates a prompt completion.
+ */ 
+
 import OpenAI from 'openai';
 import { AI_CONFIG, AIRequestConfig, AIRole } from '../config/ai.config';
 import { AnalysisPrompt, AnalysisResult, ProcessedTweet } from '../types/ai.types';

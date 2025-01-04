@@ -1,3 +1,32 @@
+/**
+ * Scheduler Service
+ * 
+ * This service is responsible for scheduling and posting tweets to Twitter based on the data
+ * retrieved from Notion. It integrates with the Notion API to fetch scheduled tweets and 
+ * the Twitter API to post them. Additionally, it handles notifications for successful or 
+ * failed tweet postings.
+ * 
+ * Key Responsibilities:
+ * 1. Fetch scheduled tweets from Notion.
+ * 2. Determine if it's time to post the tweet.
+ * 3. Post single tweets or threads to Twitter.
+ * 4. Update the status of tweets in Notion after posting.
+ * 5. Send notifications about the status of the tweet posting.
+ * 
+ * Dependencies:
+ * - TwitterService: Handles interactions with the Twitter API.
+ * - NotionService: Handles interactions with the Notion API.
+ * - NotificationService: Sends notifications about tweet posting status.
+ * 
+ * Configuration:
+ * - SchedulerConfig: Configuration settings for the scheduler.
+ * - SchedulerDependencies: Dependencies required by the scheduler.
+ * 
+ * Methods:
+ * - processSingleTweet: Processes and posts a single tweet or thread if it's time to post.
+ */
+
+
 import { TwitterService } from './twitter.service';
 import { NotionService } from './notion.service';
 import { NotificationService } from './notification.service';

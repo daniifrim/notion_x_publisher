@@ -746,4 +746,67 @@ export class NotionService {
       throw error;
     }
   }
+
+  async getPageStatus(pageId: string): Promise<NotionStatus> {
+    const page = await this.client.pages.retrieve({ page_id: pageId });
+    const status = this.extractStatus(page);
+    return status;
+  }
+
+  async getPageContent(pageId: string): Promise<string> {
+    const blocks = await this.client.blocks.children.list({
+      block_id: pageId,
+      page_size: 50
+    });
+
+    let content = '';
+    for (const block of blocks.results) {
+      if ('paragraph' in block) {
+        content += block.paragraph.rich_text.map(text => text.plain_text).join('') + '\n';
+      }
+    }
+
+    return content.trim();
+  }
+
+  private extractStatus(page: any): NotionStatus {
+    const statusProperty = page.properties?.Status;
+    if (!statusProperty?.select?.name) {
+      return 'Draft';
+    }
+    return statusProperty.select.name as NotionStatus;
+  }
+
+  async getDraftById(pageId: string): Promise<DraftTweet | null> {
+    try {
+      const response = await this.client.pages.retrieve({
+        page_id: pageId
+      });
+
+      if (!('properties' in response)) {
+        console.warn(`Page ${pageId} has no properties`);
+        return null;
+      }
+
+      const properties = response.properties as Record<string, any>;
+      const titleProperty = properties.Idea;
+      
+      if (!titleProperty || !Array.isArray(titleProperty.title)) {
+        console.warn(`Page ${pageId} has invalid Idea property`);
+        return null;
+      }
+
+      const title = titleProperty.title[0]?.plain_text || '';
+      console.log(`Found draft: "${title}"`);
+      
+      return {
+        id: pageId,
+        title,
+        status: 'Draft' as NotionStatus
+      };
+    } catch (error) {
+      console.error('Failed to get draft by ID:', error);
+      throw error;
+    }
+  }
 } 
