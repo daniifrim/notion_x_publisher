@@ -22,24 +22,13 @@
  * Note: This is the main production entry point
  */
 
-// Export the main handler as default for AWS Lambda
-export { handler as default } from './scheduled';
+import { handler as scheduledHandler } from './scheduled';
+import { handler as webhookHandler } from './webhook';
 
-// Export other handlers with unique names
-export { handler as scraperHandler } from './functions/scraper';
-export { handler as schedulerHandler } from './functions/scheduler';
+export const scheduled = scheduledHandler;
+export const webhook = webhookHandler;
 
-// Export services
-export * from './services/notion.service';
-export * from './services/twitter.service';
-export * from './services/ai.service';
-export * from './services/scraper.service';
-export * from './services/scheduler.service';
-
-// Export types and configs
-export * from './types/notion.types';
-export * from './types/twitter.types';
-export * from './types/ai.types';
-export * from './types/scraper.types';
-export * from './types/scheduler.types';
-export * from './config/ai.config'; 
+module.exports = {
+  scheduled,
+  webhook
+}; 
