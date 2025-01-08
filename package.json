@@ -11,12 +11,15 @@
   },
   "dependencies": {
     "@notionhq/client": "^2.2.14",
+    "apify-client": "^2.8.4",
     "openai": "^4.24.1",
     "dotenv": "^16.0.3",
     "twitter-api-v2": "^1.15.2"
   },
   "devDependencies": {
+    "@types/aws-lambda": "^8.10.131",
     "@types/node": "^18.15.11",
+    "chalk": "^5.3.0",
     "ts-node": "^10.9.1",
     "typescript": "^5.0.4"
   },

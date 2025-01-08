@@ -1,6 +1,7 @@
 import { config } from 'dotenv';
 import { NotionService } from '../services/notion.service';
 import { DraftProcessorService } from '../services/draft-processor.service';
+import { NotificationService } from '../services/notification.service';
 import { AI_CONFIG } from '../config/ai.config';
 
 // Load environment variables
@@ -12,7 +13,8 @@ async function testWebhookLocally() {
     console.log('🔑 Environment check:', {
       NOTION_API_KEY: process.env.NOTION_API_KEY ? '✓ Present' : '✗ Missing',
       NOTION_DATABASE_ID: process.env.NOTION_DATABASE_ID ? '✓ Present' : '✗ Missing',
-      WEBHOOK_SECRET: process.env.WEBHOOK_SECRET ? '✓ Present' : '✗ Missing'
+      WEBHOOK_SECRET: process.env.WEBHOOK_SECRET ? '✓ Present' : '✗ Missing',
+      SLACK_WEBHOOK_URL: process.env.SLACK_WEBHOOK_URL ? '✓ Present' : '✗ Missing'
     });
 
     const notionService = new NotionService({
@@ -20,11 +22,15 @@ async function testWebhookLocally() {
       databaseId: process.env.NOTION_DATABASE_ID!
     });
 
+    const notificationService = new NotificationService({
+      slackWebhookUrl: process.env.SLACK_WEBHOOK_URL
+    });
+
     const draftProcessor = new DraftProcessorService({
       maxTokens: AI_CONFIG.defaultMaxTokens,
       temperature: AI_CONFIG.defaultTemperature,
       model: AI_CONFIG.model
-    }, notionService);
+    }, notionService, notificationService);
 
     console.log('🔍 Fetching drafts from Notion');
     const drafts = await notionService.getDrafts();

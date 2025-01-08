@@ -14,6 +14,7 @@ import { NotionService } from './services/notion.service';
 import { DraftProcessorService } from './services/draft-processor.service';
 import { AI_CONFIG } from './config/ai.config';
 import { ProcessingResult } from './types/notion.types';
+import { NotificationService } from './services/notification.service';
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   console.log('🚀 Webhook handler started');
@@ -31,11 +32,15 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       databaseId: process.env.NOTION_DATABASE_ID!
     });
     
+    const notificationService = new NotificationService({
+      slackWebhookUrl: process.env.SLACK_WEBHOOK_URL
+    });
+    
     const draftProcessor = new DraftProcessorService({
       maxTokens: AI_CONFIG.defaultMaxTokens,
       temperature: AI_CONFIG.defaultTemperature,
       model: AI_CONFIG.model
-    }, notionService);
+    }, notionService, notificationService);
     
     console.log('🔑 Environment check:', {
       NOTION_API_KEY: process.env.NOTION_API_KEY ? '✓ Present' : '✗ Missing',
