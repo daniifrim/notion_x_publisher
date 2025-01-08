@@ -17,13 +17,16 @@ jobs:
       - name: Install dependencies
         run: npm ci
       
+      - name: Install Serverless Framework
+        run: npm install -g serverless
+      
       - name: Build and prepare deployment package
         run: |
           npm run build
-          cp package.json dist/
+          cp package.json package-lock.json dist/
           cd dist
           npm ci --production
-          zip -r ../function.zip .
+          cd ..
       
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -32,6 +35,17 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
       
-      - name: Deploy to Lambda
-        run: |
-          aws lambda update-function-code --function-name notion-x-publisher --zip-file fileb://function.zip 
+      - name: Deploy with Serverless
+        run: serverless deploy
+        env:
+          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
+          NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
+          TWITTER_API_KEY: ${{ secrets.TWITTER_API_KEY }}
+          TWITTER_API_SECRET: ${{ secrets.TWITTER_API_SECRET }}
+          TWITTER_ACCESS_TOKEN: ${{ secrets.TWITTER_ACCESS_TOKEN }}
+          TWITTER_ACCESS_TOKEN_SECRET: ${{ secrets.TWITTER_ACCESS_TOKEN_SECRET }}
+          APIFY_API_TOKEN: ${{ secrets.APIFY_API_TOKEN }}
+          APIFY_TASK_ID: ${{ secrets.APIFY_TASK_ID }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }} 

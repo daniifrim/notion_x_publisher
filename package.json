@@ -7,7 +7,7 @@
     "start": "ts-node src/local.ts",
     "build": "tsc",
     "test": "ts-node src/tests/test-draft-processor.ts",
-    "deploy": "rm -rf dist && npm run build && cp package.json dist/ && cd dist && npm ci --production"
+    "deploy": "rm -rf dist && npm run build && cp package.json package-lock.json dist/ && cd dist && npm ci --production"
   },
   "dependencies": {
     "@notionhq/client": "^2.2.14",
