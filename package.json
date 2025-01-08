@@ -1,39 +1,20 @@
 {
-  "name": "notion_x_publisher",
+  "name": "gpt4-chat",
   "version": "1.0.0",
-  "description": "Publish content from Notion to various platforms",
-  "main": "dist/index.js",
+  "description": "Simple GPT-4 chat interface",
+  "main": "chat.ts",
   "scripts": {
-    "build": "tsc",
-    "start": "node dist/index.js",
-    "test:local": "ts-node src/local.ts",
-    "test:scraper": "ts-node src/tests/test-scraper.ts",
-    "test:scheduler": "ts-node src/tests/test-scheduler.ts",
-    "test:extraction": "ts-node src/tests/test-tweet-extraction.ts",
-    "test:notifications": "ts-node src/tests/test-notifications.ts",
-    "test:draft-processor": "ts-node src/tests/test-draft-processor.ts",
-    "test:tweet-preview": "ts-node src/tests/test-tweet-preview.ts",
-    "test:webhook": "ts-node src/tests/test-webhook-handler.ts",
-    "test:webhook:local": "ts-node src/tests/test-webhook-local.ts",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "deploy": "serverless deploy",
-    "offline": "serverless offline"
-  },
-  "devDependencies": {
-    "@types/aws-lambda": "^8.10.147",
-    "@types/node": "^22.10.2",
-    "serverless": "^3.38.0",
-    "serverless-offline": "^13.3.2",
-    "serverless-plugin-typescript": "^2.1.5",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.7.2"
+    "start": "ts-node src/chat.ts",
+    "deepseek": "node deepseek_test.js"
   },
   "dependencies": {
-    "@notionhq/client": "^2.2.15",
-    "apify-client": "^2.8.1",
-    "chalk": "^4.1.2",
-    "dotenv": "^16.4.7",
     "openai": "^4.24.1",
-    "twitter-api-v2": "^1.19.0"
-  }
+    "dotenv": "^16.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^18.15.11",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.0.4"
+  },
+  "type": "module"
 }
