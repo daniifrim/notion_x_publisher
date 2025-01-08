@@ -17,19 +17,15 @@ jobs:
           cache: 'npm'
           
       - name: Install dependencies
-        run: |
-          npm ci
-          npm run build
-        env:
-          CI: true
+        run: npm ci
+          
+      - name: Build TypeScript
+        run: npm run build
         
       - name: Create production build
         run: |
-          rm -rf node_modules
-          npm ci --production
-          mkdir -p dist/node_modules
-          cp -r node_modules/* dist/node_modules/
           cd dist
+          npm ci --production
           zip -r ../function.zip .
           cd ..
           zip -g function.zip package.json

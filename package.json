@@ -1,15 +1,19 @@
 {
-  "name": "gpt4-chat",
+  "name": "notion-x-publisher",
   "version": "1.0.0",
-  "description": "Simple GPT-4 chat interface",
-  "main": "chat.ts",
+  "description": "Notion to Twitter publisher with AI-powered content generation",
+  "main": "dist/index.js",
   "scripts": {
-    "start": "ts-node src/chat.ts",
-    "deepseek": "node deepseek_test.js"
+    "start": "ts-node src/local.ts",
+    "build": "tsc",
+    "test": "ts-node src/tests/test-draft-processor.ts",
+    "deploy": "npm run build && npm prune --production"
   },
   "dependencies": {
+    "@notionhq/client": "^2.2.14",
     "openai": "^4.24.1",
-    "dotenv": "^16.0.3"
+    "dotenv": "^16.0.3",
+    "twitter-api-v2": "^1.15.2"
   },
   "devDependencies": {
     "@types/node": "^18.15.11",
