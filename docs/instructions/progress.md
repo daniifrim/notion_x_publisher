@@ -197,3 +197,18 @@
    - ✅ Updated main documentation with webhook details
    - ✅ Added error handling documentation
    - ✅ Updated progress tracking
+
+### [AWS EventBridge Setup for Draft Processor and Tweet Publisher]
+
+- Updated Lambda triggers to two separate EventBridge rules:
+  1. "draft-processor" → rate(15 minutes)  
+  2. "tweet-publisher" → rate(30 minutes)
+
+- Added instructions for configuring EventBridge in AWS Console:
+  1. Create Rule → schedule expression  
+  2. Specify target Lambda → notion-x-publisher  
+  3. Confirm correct permissions and environment variables
+
+- Updated "serverless.yml" to include both schedules under "functions.notionPublisher.events"  
+- Verified that "scheduled.ts" checks the event resources to route logic to "draft-processor" or "tweet-publisher"  
+- Next step: Validate logs in CloudWatch to ensure execution at intended intervals

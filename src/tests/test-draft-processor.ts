@@ -14,6 +14,7 @@
 import { config } from 'dotenv';
 import { NotionService } from '../services/notion.service';
 import { DraftProcessorService } from '../services/draft-processor.service';
+import { NotificationService } from '../services/notification.service';
 import { DraftProcessorConfig } from '../types/draft-processor.types';
 import { AI_CONFIG } from '../config/ai.config';
 
@@ -30,13 +31,21 @@ async function main() {
       databaseId: process.env.NOTION_DATABASE_ID || ''
     });
 
+    const notificationService = new NotificationService({
+      slackWebhookUrl: process.env.SLACK_WEBHOOK_URL
+    });
+
     const draftProcessorConfig: DraftProcessorConfig = {
       model: AI_CONFIG.model,
       maxTokens: AI_CONFIG.defaultMaxTokens,
       temperature: AI_CONFIG.defaultTemperature
     };
 
-    const draftProcessor = new DraftProcessorService(draftProcessorConfig, notionService);
+    const draftProcessor = new DraftProcessorService(
+      draftProcessorConfig, 
+      notionService,
+      notificationService
+    );
 
     // Get draft tweets that aren't threads
     console.log('\n📋 Fetching draft tweets not in thread...');

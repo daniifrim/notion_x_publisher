@@ -35,7 +35,7 @@ export class NotificationService {
     await this.sendNotification(message, 'error');
   }
 
-  private async sendNotification(message: string, type: 'success' | 'error'): Promise<void> {
+  public async sendNotification(message: string, type: 'success' | 'error'): Promise<void> {
     if (this.config.slackWebhookUrl) {
       try {
         const emoji = type === 'success' ? ':white_check_mark:' : ':x:';

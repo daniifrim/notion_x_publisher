@@ -17,17 +17,26 @@
 
 import { NotionService } from './notion.service';
 import { AIService } from './ai.service';
+import { NotificationService } from './notification.service';
 import { DraftProcessorConfig, DraftTweet, ProcessingResult } from '../types/draft-processor.types';
+import { NotionTweet } from '../types/notion.types';
 import { NOTION_SCHEMA } from '../constants/notion.constants';
+
 
 export class DraftProcessorService {
   private aiService: AIService;
   private config: DraftProcessorConfig;
   private notionService: NotionService;
+ private notificationService: NotificationService;
 
-  constructor(config: DraftProcessorConfig, notionService: NotionService) {
+  constructor(
+    config: DraftProcessorConfig, 
+    notionService: NotionService,
+    notificationService: NotificationService
+  ) {
     this.config = config;
     this.notionService = notionService;
+    this.notificationService = notificationService;
     this.aiService = AIService.getInstance();
   }
 
@@ -237,14 +246,42 @@ Provide ONLY the corrected text with no explanations or additional formatting.`;
 
   async processAllDrafts(): Promise<ProcessingResult[]> {
     try {
-      // Get all drafts from Notion
-      const drafts = await this.notionService.getDrafts();
-      console.log(`Found ${drafts.length} drafts to process`);
+      // Get all non-thread drafts from Notion
+      const drafts = await this.notionService.getDraftTweetsNotInThread();
+      console.log(`Found ${drafts.length} non-thread drafts to process`);
 
       // Process each draft
       const results = await Promise.all(
-        drafts.map((draft: DraftTweet) => this.processDraft(draft))
+        drafts.map((draft: NotionTweet) => this.processDraft({
+          id: draft.id,
+          properties: {
+            [NOTION_SCHEMA.PROPERTIES.TITLE]: {
+              title: [{ plain_text: draft.title || '' }]
+            }
+          }
+        }))
       );
+
+      // Send notification with summary of processed drafts
+      const successfulDrafts = results.filter(r => r.success);
+      const failedDrafts = results.filter(r => !r.success);
+
+      const message = `🤖 Draft Processing Summary\n\n` +
+        `✅ Successfully processed: ${successfulDrafts.length}\n` +
+        `❌ Failed: ${failedDrafts.length}\n\n` +
+        `Processed Drafts:\n${successfulDrafts.map(d => {
+          const firstVariation = d.variations?.[0];
+          return firstVariation ? `• ${firstVariation.substring(0, 50)}...` : '• (No variation available)';
+        }).join('\n')}`;
+
+      try {
+        await this.notificationService.sendNotification(
+          message,
+          successfulDrafts.length > 0 ? 'success' : 'error'
+        );
+      } catch (error) {
+        console.error('Failed to send notification:', error);
+      }
 
       return results;
     } catch (error) {
@@ -253,3 +290,4 @@ Provide ONLY the corrected text with no explanations or additional formatting.`;
     }
   }
 } 
+

@@ -24,6 +24,7 @@ import { NotionService } from './services/notion.service';
 import { TwitterService } from './services/twitter.service';
 import { DraftProcessorService } from './services/draft-processor.service';
 import { ScraperService } from './services/scraper.service';
+import { NotificationService } from './services/notification.service';
 import { AI_CONFIG } from './config/ai.config';
 import { NotionConfig } from './types/notion.types';
 import { TwitterConfig, TweetContent } from './types/twitter.types';
@@ -57,6 +58,10 @@ export const handler = async (event: any): Promise<any> => {
       apiKey: process.env.NOTION_API_KEY!
     });
 
+    const notificationService = new NotificationService({
+      slackWebhookUrl: process.env.SLACK_WEBHOOK_URL
+    });
+
     switch (scheduleName) {
       case 'tweet-publisher':
         console.log('🐦 Running tweet publisher...');
@@ -80,7 +85,7 @@ export const handler = async (event: any): Promise<any> => {
           maxTokens: AI_CONFIG.defaultMaxTokens,
           temperature: AI_CONFIG.defaultTemperature,
           model: AI_CONFIG.model
-        }, notionService);
+        }, notionService, notificationService);
 
         const results = await draftProcessor.processAllDrafts();
         console.log('✅ Draft processing completed:', results);
