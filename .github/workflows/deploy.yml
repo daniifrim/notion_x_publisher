@@ -17,15 +17,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
       
-      - name: Install Serverless Framework
-        run: npm install -g serverless
-      
       - name: Build and prepare deployment package
         run: |
           npm run build
           cp package.json package-lock.json dist/
           cd dist
           npm ci --production
+          zip -r ../function.zip ./*
           cd ..
       
       - name: Configure AWS credentials
@@ -35,8 +33,10 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
       
-      - name: Deploy with Serverless
-        run: serverless deploy
+      - name: Update Lambda Functions
+        run: |
+          aws lambda update-function-code --function-name notion-x-publisher-draftProcessorWebhook --zip-file fileb://function.zip
+          aws lambda update-function-code --function-name notion-x-publisher-notionPublisher --zip-file fileb://function.zip
         env:
           NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
           NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}

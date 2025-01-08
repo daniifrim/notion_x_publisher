@@ -21,6 +21,8 @@
     "@types/node": "^18.15.11",
     "chalk": "^5.3.0",
     "ts-node": "^10.9.1",
-    "typescript": "^5.0.4"
+    "typescript": "^5.0.4",
+    "serverless": "^3.38.0",
+    "serverless-plugin-typescript": "^2.1.5"
   }
 }
