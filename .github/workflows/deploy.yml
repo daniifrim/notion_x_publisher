@@ -1,18 +1,15 @@
-name: Deploy to AWS Lambda
+name: Deploy Lambda
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '18'
           cache: 'npm'
@@ -20,9 +17,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
       
-      - name: Build and package
+      - name: Build and prepare deployment package
         run: |
           npm run build
+          cp package.json dist/
           cd dist
           npm ci --production
           zip -r ../function.zip .
@@ -36,7 +34,4 @@ jobs:
       
       - name: Deploy to Lambda
         run: |
-          aws lambda update-function-code \
-            --function-name notion-x-publisher \
-            --zip-file fileb://function.zip \
-            --publish 
+          aws lambda update-function-code --function-name notion-x-publisher --zip-file fileb://function.zip 
