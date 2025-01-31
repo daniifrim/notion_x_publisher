@@ -24,10 +24,19 @@
   ],
   "crons": [
     {
-      "path": "/api/publish",
+      "path": "/api/publish?task=tweet-publisher",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/publish?task=draft-processor",
+      "schedule": "0 */1 * * *"
+    },
+    {
+      "path": "/api/publish?task=content-scraper",
+      "schedule": "0 */6 * * *"
     }
   ],
+  "regions": ["iad1"],
   "env": {
     "NOTION_API_KEY": "@notion_api_key",
     "NOTION_DATABASE_ID": "@notion_database_id",
@@ -39,6 +48,7 @@
     "WEBHOOK_SECRET": "@webhook_secret",
     "SLACK_WEBHOOK_URL": "@slack_webhook_url",
     "APIFY_API_TOKEN": "@apify_api_token",
-    "APIFY_TASK_ID": "@apify_task_id"
+    "APIFY_TASK_ID": "@apify_task_id",
+    "NODE_ENV": "production"
   }
 } 
