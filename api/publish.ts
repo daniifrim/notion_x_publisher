@@ -1,18 +1,35 @@
-import { NextRequest, NextResponse } from 'next/server';
+/**
+ * AWS Lambda Handler: Main Tweet Publisher
+ * 
+ * This is the main Lambda function that runs every 5 minutes via EventBridge trigger.
+ * It handles the core functionality of checking Notion for ready tweets and publishing them to Twitter.
+ * 
+ * Process Flow:
+ * 1. Checks Notion database for tweets with "Ready to Publish" status
+ * 2. For each ready tweet:
+ *    - Validates the content
+ *    - Posts to Twitter
+ *    - Updates status in Notion to "Published" or "Failed to Post"
+ * 
+ * Related Files:
+ * - services/notion.service.ts: Handles all Notion database operations
+ * - services/twitter.service.ts: Manages Twitter API interactions
+ * - types/notion.types.ts: Type definitions for Notion data
+ * 
+ * Trigger: EventBridge rule "notion-x-publisher-schedule" (every 5 minutes)
+ */
+
+import { VercelRequest, VercelResponse } from '@vercel/node';
 import { NotionService } from '../src/services/notion.service';
 import { TwitterService } from '../src/services/twitter.service';
 import { DraftProcessorService } from '../src/services/draft-processor.service';
 import { ScraperService } from '../src/services/scraper.service';
 import { NotificationService } from '../src/services/notification.service';
 import { AI_CONFIG } from '../src/config/ai.config';
-import { MediaUpload } from '../src/types/twitter.types';
-
-export const config = {
-  runtime: 'edge'
-};
 
 export default async function handler(
-  req: NextRequest
+  req: VercelRequest,
+  res: VercelResponse
 ) {
   try {
     // Initialize common services
@@ -26,8 +43,7 @@ export default async function handler(
     });
 
     // Get the task type from query parameters
-    const { searchParams } = new URL(req.url);
-    const taskType = searchParams.get('task') || 'tweet-publisher';
+    const taskType = req.query.task as string || 'tweet-publisher';
 
     switch (taskType) {
       case 'tweet-publisher':
@@ -46,14 +62,8 @@ export default async function handler(
         const results = await Promise.allSettled(
           readyTweets.map(async (tweet) => {
             try {
-              // Convert images to media uploads
-              const media: MediaUpload[] = tweet.images?.map(url => ({
-                url,
-                type: 'image' as const
-              })) || [];
-
               // Post to Twitter
-              const result = await twitterService.postTweet(tweet.content, media);
+              const result = await twitterService.postTweet(tweet.content);
               
               // Update Notion status
               await notionService.updateTweetStatus(tweet.id, 'Published', result.url);
@@ -71,7 +81,7 @@ export default async function handler(
           })
         );
 
-        return NextResponse.json({
+        return res.status(200).json({
           status: 'success',
           details: {
             total: readyTweets.length,
@@ -88,7 +98,7 @@ export default async function handler(
         }, notionService, notificationService);
 
         const draftResults = await draftProcessor.processAllDrafts();
-        return NextResponse.json({
+        return res.status(200).json({
           status: 'success',
           details: draftResults
         });
@@ -101,22 +111,22 @@ export default async function handler(
 
         const config = await notionService.getInputConfig();
         const scrapedData = await scraperService.scrapeTweets(config.interests);
-        return NextResponse.json({
+        return res.status(200).json({
           status: 'success',
           details: scrapedData
         });
 
       default:
-        return NextResponse.json({
+        return res.status(400).json({
           status: 'error',
           message: `Unknown task type: ${taskType}`
-        }, { status: 400 });
+        });
     }
   } catch (error) {
     console.error('Task execution failed:', error);
-    return NextResponse.json({
+    return res.status(500).json({
       status: 'error',
       message: error instanceof Error ? error.message : 'Internal server error'
-    }, { status: 500 });
+    });
   }
-} 
+}

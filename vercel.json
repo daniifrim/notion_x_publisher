@@ -16,10 +16,6 @@
       "src": "/api/publish",
       "methods": ["GET"],
       "dest": "/api/publish.ts"
-    },
-    {
-      "src": "/api",
-      "dest": "/api/index.ts"
     }
   ],
   "crons": [
@@ -36,6 +32,12 @@
       "schedule": "0 */6 * * *"
     }
   ],
+  "functions": {
+    "api/**/*.ts": {
+      "memory": 1024,
+      "maxDuration": 60
+    }
+  },
   "regions": ["iad1"],
   "env": {
     "NOTION_API_KEY": "@notion_api_key",
