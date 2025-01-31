@@ -1,0 +1,44 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/**/*.ts",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/webhook",
+      "methods": ["POST"],
+      "dest": "/api/webhook.ts"
+    },
+    {
+      "src": "/api/publish",
+      "methods": ["GET"],
+      "dest": "/api/publish.ts"
+    },
+    {
+      "src": "/api",
+      "dest": "/api/index.ts"
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/publish",
+      "schedule": "*/5 * * * *"
+    }
+  ],
+  "env": {
+    "NOTION_API_KEY": "@notion_api_key",
+    "NOTION_DATABASE_ID": "@notion_database_id",
+    "TWITTER_API_KEY": "@twitter_api_key",
+    "TWITTER_API_SECRET": "@twitter_api_secret",
+    "TWITTER_ACCESS_TOKEN": "@twitter_access_token",
+    "TWITTER_ACCESS_TOKEN_SECRET": "@twitter_access_token_secret",
+    "OPENAI_API_KEY": "@openai_api_key",
+    "WEBHOOK_SECRET": "@webhook_secret",
+    "SLACK_WEBHOOK_URL": "@slack_webhook_url",
+    "APIFY_API_TOKEN": "@apify_api_token",
+    "APIFY_TASK_ID": "@apify_task_id"
+  }
+} 
