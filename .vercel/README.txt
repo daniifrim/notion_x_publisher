@@ -1,15 +1,11 @@
-Notion X Publisher - Vercel Deployment
+> Why do I have a folder named ".vercel" in my project?
+The ".vercel" folder is created when you link a directory to a Vercel project.
 
-This project is configured to run on Vercel's Edge Runtime.
-Main branch: main
-Latest commit: cec3e70
+> What does the "project.json" file contain?
+The "project.json" file contains:
+- The ID of the Vercel project that you linked ("projectId")
+- The ID of the user or team your Vercel project is owned by ("orgId")
 
-API Endpoints:
-- /api/webhook (POST)
-- /api/publish (GET)
-- /api (GET)
-
-CRON Jobs:
-- Publisher runs every 5 minutes
-
-Please ensure all environment variables are properly configured in the Vercel dashboard.
+> Should I commit the ".vercel" folder?
+No, you should not share the ".vercel" folder with anyone.
+Upon creation, it will be automatically added to your ".gitignore" file.

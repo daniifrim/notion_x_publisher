@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Notion X Publisher - Automated content publishing from Notion to X/Twitter",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc --project tsconfig.json",
     "dev": "vercel dev",
     "deploy": "vercel deploy --prod"
   },
