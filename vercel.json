@@ -1,5 +1,7 @@
 {
+  // Vercel configuration for Notion X Publisher
   "version": 2,
+  "description": "Notion X Publisher - Vercel Deployment",
   "builds": [
     {
       "src": "api/**/*.ts",
